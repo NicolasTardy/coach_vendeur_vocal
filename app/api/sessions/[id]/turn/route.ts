@@ -61,14 +61,24 @@ export async function POST(request: Request, { params }: Params) {
   });
 
   const tts = new OpenAITextToSpeechService();
-  const audioUrl = await tts.synthesize(clientText);
+  let audioUrl: string | null = null;
+
+  try {
+    audioUrl = await tts.synthesize(clientText);
+  } catch (error) {
+    console.error("TTS synthesis failed", error);
+  }
+
   const clientTurn: TranscriptTurn = {
     id: crypto.randomUUID(),
     speaker: "client",
     text: clientText,
     timestamp: new Date().toISOString(),
-    audioUrl: audioUrl ?? undefined,
     contextIndex: session.transcript.length + 1
+  };
+  const responseClientTurn: TranscriptTurn = {
+    ...clientTurn,
+    audioUrl: audioUrl ?? undefined
   };
 
   session.transcript = [...session.transcript, sellerTurn, clientTurn];
@@ -76,7 +86,7 @@ export async function POST(request: Request, { params }: Params) {
 
   return NextResponse.json({
     sellerText,
-    clientTurn,
+    clientTurn: responseClientTurn,
     session
   });
 }

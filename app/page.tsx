@@ -8,6 +8,7 @@ import {
   CircleStop,
   Mic,
   Play,
+  Volume2,
   RotateCcw,
   Send,
   Sparkles,
@@ -77,14 +78,26 @@ export default function Home() {
 
   async function startRecording() {
     setError("");
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError(
+        "Micro non supporte dans ce navigateur. Utilise la saisie texte pour tester."
+      );
+      return;
+    }
+
     const provider = new BrowserMediaRecorderProvider();
     recorderRef.current = provider;
 
     try {
       await provider.start();
       setStatus("recording");
-    } catch {
-      setError("Micro indisponible. Utilise la saisie texte pour tester.");
+    } catch (error) {
+      const message =
+        error instanceof DOMException && error.name === "NotAllowedError"
+          ? "Permission micro refusee. Autorise le micro dans le navigateur ou utilise la saisie texte."
+          : "Micro indisponible. Utilise la saisie texte pour tester.";
+      setError(message);
     }
   }
 
@@ -131,13 +144,53 @@ export default function Home() {
       return;
     }
 
-    const data = (await response.json()) as { session: TrainingSession };
+    const data = (await response.json()) as {
+      session: TrainingSession;
+      clientTurn?: TranscriptTurn;
+    };
     setSession(data.session);
-    const audioUrl = data.session.transcript.at(-1)?.audioUrl;
-    if (audioUrl) {
-      new Audio(audioUrl).play().catch(() => undefined);
-    }
+    playClientVoice(data.clientTurn ?? data.session.transcript.at(-1));
     setStatus("idle");
+  }
+
+  async function playClientVoice(turn?: TranscriptTurn) {
+    if (!turn?.text) {
+      return;
+    }
+
+    if (turn.audioUrl) {
+      try {
+        await new Audio(turn.audioUrl).play();
+        return;
+      } catch {
+        // Fall through to browser speech synthesis.
+      }
+    }
+
+    speakWithBrowserVoice(turn.text);
+  }
+
+  function speakWithBrowserVoice(text: string) {
+    if (!("speechSynthesis" in window)) {
+      setError("Voix indisponible dans ce navigateur.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "fr-FR";
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    const voice = window.speechSynthesis
+      .getVoices()
+      .find((item) => item.lang.toLowerCase().startsWith("fr"));
+
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    window.speechSynthesis.speak(utterance);
   }
 
   async function finishSession() {
@@ -223,6 +276,7 @@ export default function Home() {
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onSubmitText={submitText}
+            onSpeak={playClientVoice}
             onFinish={finishSession}
           />
         )}
@@ -408,6 +462,7 @@ function SimulationScreen({
   onStartRecording,
   onStopRecording,
   onSubmitText,
+  onSpeak,
   onFinish
 }: {
   session: TrainingSession;
@@ -419,6 +474,7 @@ function SimulationScreen({
   onStartRecording: () => void;
   onStopRecording: () => void;
   onSubmitText: (event: FormEvent<HTMLFormElement>) => void;
+  onSpeak: (turn?: TranscriptTurn) => void;
   onFinish: () => void;
 }) {
   const clientTurn = [...session.transcript]
@@ -453,7 +509,7 @@ function SimulationScreen({
         <div className="mt-5 flex items-center justify-center gap-2 voice-wave">
           {[18, 32, 46, 30, 20].map((height, index) => (
             <span
-              key={height + index}
+              key={`${height}-${index}`}
               className={cx(
                 "block w-3 rounded-full",
                 status === "recording" || status === "client"
@@ -468,6 +524,15 @@ function SimulationScreen({
         <blockquote className="mt-5 rounded-md bg-paper p-4 text-lg font-bold leading-7">
           {clientTurn?.text}
         </blockquote>
+        <button
+          className="mt-3 flex h-10 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 text-sm font-black disabled:opacity-45"
+          disabled={!clientTurn}
+          onClick={() => onSpeak(clientTurn)}
+          type="button"
+        >
+          <Volume2 size={17} />
+          Reecouter
+        </button>
       </div>
 
       <div className="mt-4 flex justify-center">
