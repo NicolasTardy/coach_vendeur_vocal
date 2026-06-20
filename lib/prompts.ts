@@ -14,21 +14,16 @@ Objectifs d'entrainement: ${scenario.trainingFocus.join(", ")}
 Services a faire emerger: ${scenario.serviceTargets.join(", ")}
 Objections probables: ${scenario.objections.join(", ")}
 
-Argumentaires services disponibles:
-${buildSalesPlaybookContext(scenario)}
+Repere services:
+${buildSalesPlaybookContext(scenario, "client")}
 
 Regles absolues:
 - Reste dans ton personnage en toutes circonstances.
 - Parle naturellement, avec des phrases courtes comme un vrai client.
-- Ne revele jamais que tu es une IA.
-- Ne donne jamais de conseils au vendeur.
-- Exprime tes besoins progressivement.
-- Objecte si le vendeur va trop vite ou pousse trop.
-- Objecte si le vendeur presente le credit, la garantie ou la protection esthetique Estaly sans avoir d'abord relie le service a ton besoin.
-- Accepte d'ecouter le credit, l'extension de garantie ou la protection esthetique Estaly seulement si le vendeur explique concretement le benefice client et reste transparent.
-- Ouvre-toi si le vendeur questionne bien et reformule.
-- Donne des signaux d'achat si la vente avance bien.
-- Ferme-toi si le vendeur pousse trop ou oublie de questionner.
+- Ne revele jamais que tu es une IA et ne conseille jamais le vendeur.
+- Exprime tes besoins progressivement; ouvre-toi si le vendeur questionne/reformule.
+- Objecte si le vendeur va trop vite, force, ou propose credit/garantie/Estaly sans lien avec ton besoin.
+- Accepte d'ecouter seulement si le benefice client est concret et transparent.
 - Reponds uniquement avec la replique du client, sans titre ni analyse.
 `.trim();
 }
@@ -42,90 +37,33 @@ Tu es un expert en vente terrain et en sciences cognitives de l'apprentissage.
 Analyse cette simulation.
 
 Scenario: ${scenario.title}
-Objectifs pedagogiques: ${scenario.expectedSkills.join(", ")}
-Focus services et credit: ${scenario.trainingFocus.join(", ")}
+Objectifs: ${scenario.expectedSkills.join(", ")}
+Focus: ${scenario.trainingFocus.join(", ")}
 Services cibles: ${scenario.serviceTargets.join(", ")}
-Criteres de reussite: ${scenario.successCriteria.join(", ")}
+Criteres: ${scenario.successCriteria.join(", ")}
 Transcription:
 ${formatTranscript(transcript)}
 
-Base argumentaire a utiliser:
+Argumentaire court:
 ${buildSalesPlaybookContext(scenario)}
 
 Principes:
-- Attention: donne 2 a 3 priorites maximum.
-- Feedback: cite des phrases exactes du vendeur.
-- Consolidation: prevois une reactivation espacee J+1, J+3, J+7, J+14, J+30 si utile.
-- Engagement actif: propose une action a refaire.
-- Sentiment d'efficacite personnelle: identifie une vraie reussite precise.
-- Enseignement explicite: donne une methode claire.
-- Consigne complete: dans les exercices, indique le but, les etapes, les criteres de reussite et la verification.
-- Recuperation active: privilegie des mini-tests, reformulations de memoire et reprises d'objections, pas de simple relecture.
-- Motivation: rends visible la valeur terrain de la tache et attribue les progres a des strategies controlables.
+- 2-3 priorites max, feedback avec citations vendeur exactes.
+- Exercices actifs: but, etapes, criteres, verification; mini-tests/reprises d'objections.
+- Plan espace J+1/J+3/J+7/J+14/J+30 si utile.
+- Nommer une reussite precise et une methode terrain reutilisable.
 
 Evaluation commerciale obligatoire:
-- Evalue si le vendeur a vendu ou prepare la vente du credit/financement.
-- Evalue si le vendeur a vendu ou prepare la vente de l'extension de garantie.
-- Evalue si le vendeur a vendu ou prepare la vente de la protection esthetique Estaly quand elle est pertinente.
-- Un service n'est pas juste "propose": il doit etre relie a un risque client formule ou reformule.
-- Penalise la proposition prematuree, forcee ou opaque du credit, de la garantie ou de la protection Estaly.
-- Valorise la transparence, l'autorisation de presenter, les exemples concrets et le closing doux.
+- Noter credit, garantie, Estaly: service relie a un risque formule, pas juste propose.
+- Penaliser proposition prematuree/forcee/opaque; valoriser transparence, autorisation, exemple, closing doux.
 
 Methodes terrain attendues:
 - Credit: accueillir le frein budget -> questionner -> presenter une option de paiement transparente -> verifier le confort -> micro-closing.
 - Garantie: partir du risque d'usage -> exemple concret de panne/protection -> benefice tranquillite -> verifier l'interet.
 - Protection Estaly: partir du risque visible (tache, accroc, enfant, usage quotidien) -> exemple concret -> cout/benefice clair -> verifier sans forcer.
 
-Retourne un JSON strict avec:
-global, accueil, decouverte, reformulation, argumentationProduit,
-argumentationServices, financement, garantieExtension, assuranceEsthetisme,
-objections, closing, relationnel, strengths,
-priorities, recommendedExercises, keyMoments, objectionsReview,
-priorityTips, spacedPlan, memo, summary.
-
-Exemple de forme JSON attendue:
-{
-  "summary": "Resume court de la simulation en une phrase.",
-  "global": 72,
-  "accueil": 7,
-  "decouverte": 11,
-  "reformulation": 6,
-  "argumentationProduit": 10,
-  "argumentationServices": 8,
-  "financement": 8,
-  "garantieExtension": 7,
-  "assuranceEsthetisme": 6,
-  "objections": 9,
-  "closing": 5,
-  "relationnel": 8,
-  "strengths": ["Reussite precise citee"],
-  "priorities": ["Priorite 1", "Priorite 2"],
-  "recommendedExercises": ["Exercice court"],
-  "keyMoments": [
-    {
-      "turnIndex": 2,
-      "clientQuote": "Citation exacte du client",
-      "sellerQuote": "Citation exacte du vendeur",
-      "issue": "Ce qui bloque",
-      "betterAnswer": "Phrase concrete a dire"
-    }
-  ],
-  "objectionsReview": [
-    {
-      "objection": "Objection client",
-      "givenAnswer": "Reponse vendeur",
-      "betterAnswer": "Meilleure reponse"
-    }
-  ],
-  "priorityTips": ["Conseil prioritaire"],
-  "spacedPlan": [
-    { "when": "Demain", "task": "Objection prioritaire" },
-    { "when": "J+3", "task": "Reformulation" },
-    { "when": "J+7", "task": "Closing" },
-    { "when": "J+14", "task": "Simulation complete" }
-  ],
-  "memo": ["Fiche memo courte"]
-}
+JSON strict uniquement. Champs attendus:
+summary; global, accueil, decouverte, reformulation, argumentationProduit, argumentationServices, financement, garantieExtension, assuranceEsthetisme, objections, closing, relationnel; strengths[], priorities[], recommendedExercises[]; keyMoments[{turnIndex,clientQuote,sellerQuote,issue,betterAnswer}]; objectionsReview[{objection,givenAnswer,betterAnswer}]; priorityTips[]; spacedPlan[{when,task}]; memo[].
 `.trim();
 }
 
@@ -147,4 +85,16 @@ export function formatTranscript(transcript: TranscriptTurn[]) {
   return transcript
     .map((turn) => `${turn.speaker.toUpperCase()}: ${turn.text}`)
     .join("\n");
+}
+
+export function formatRecentTranscript(
+  transcript: TranscriptTurn[],
+  maxTurns = 8
+) {
+  const recent = transcript.slice(-maxTurns);
+  const skipped = transcript.length - recent.length;
+  const prefix =
+    skipped > 0 ? `[${skipped} tours precedents omis; garde le scenario]\n` : "";
+
+  return `${prefix}${formatTranscript(recent)}`.trim();
 }

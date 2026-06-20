@@ -1,5 +1,5 @@
 import { aiConfig } from "@/lib/config";
-import { buildClientSystemPrompt, formatTranscript } from "@/lib/prompts";
+import { buildClientSystemPrompt, formatRecentTranscript } from "@/lib/prompts";
 import {
   createDeepSeekChatCompletion,
   extractDeepSeekText
@@ -38,7 +38,7 @@ export class ClientPersonaEngine implements ConversationEngine {
           },
           {
             role: "user",
-            content: `${formatTranscript(transcript)}\nSELLER: ${sellerText}`
+            content: `${formatRecentTranscript(transcript)}\nSELLER: ${sellerText}`
           }
         ],
         maxTokens: 140,
@@ -57,7 +57,7 @@ export class ClientPersonaEngine implements ConversationEngine {
         systemInstruction: buildClientSystemPrompt(scenario),
         parts: [
           {
-            text: `${formatTranscript(transcript)}\nSELLER: ${sellerText}`
+            text: `${formatRecentTranscript(transcript)}\nSELLER: ${sellerText}`
           }
         ],
         maxOutputTokens: 140
@@ -82,7 +82,7 @@ export class ClientPersonaEngine implements ConversationEngine {
       body: JSON.stringify({
         model: aiConfig.textModel,
         instructions: buildClientSystemPrompt(scenario),
-        input: `${formatTranscript(transcript)}\nSELLER: ${sellerText}`,
+        input: `${formatRecentTranscript(transcript)}\nSELLER: ${sellerText}`,
         max_output_tokens: 140
       })
     });
