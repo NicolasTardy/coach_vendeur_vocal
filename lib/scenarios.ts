@@ -1,20 +1,27 @@
 import type { Scenario } from "@/lib/types";
 
+// IMPORTANT: le produit (canape, matelas, TV...) est UNIQUEMENT la cle d'entree.
+// Le vrai objectif de chaque scenario est de declencher au moins un service:
+// 1) Carte de paiement & credit BUT Cpay
+// 2) Protection esthetique Estaly
+// 3) GLD (Garantie Longue Duree)
+// trainingFocus, successCriteria et expectedSkills doivent refleter cette priorite.
+
 export const scenarios: Scenario[] = [
   {
     id: "canape-famille-budget",
-    title: "Canape familial - Budget serre",
+    title: "Canape familial - cle d'entree pour Estaly + GLD",
     department: "Canape",
     difficulty: "beginner",
     serviceTargets: [
-      "extension de garantie",
       "protection esthetique Estaly",
-      "livraison"
+      "GLD garantie longue duree",
+      "carte/credit Cpay"
     ],
     trainingFocus: [
-      "vendre la protection du canape avec les enfants",
-      "relier la protection esthetique Estaly aux taches et petits accidents",
-      "presenter le financement comme une option de confort budgetaire"
+      "faire emerger Estaly sur le risque taches/enfants/animaux",
+      "vendre la GLD sur le mecanisme et le tissu",
+      "presenter Cpay comme option de confort budget"
     ],
     clientPersona: "Couple avec 2 enfants, 35-42 ans, prudents",
     visibleNeed: "Changer un canape use",
@@ -22,112 +29,118 @@ export const scenarios: Scenario[] = [
       "Peur de se tromper sur la solidite et l'entretien avec les enfants",
     budget: "900 a 1200 euros",
     objections: [
-      "C'est trop cher",
       "On va reflechir",
-      "On a vu moins cher sur internet",
-      "La garantie ca ne sert a rien",
-      "La protection esthetique ca fait encore un truc en plus",
+      "Estaly ca fait encore un truc en plus",
+      "La garantie ca sert a rien",
       "On ne veut pas prendre de credit"
     ],
     expectedSkills: [
-      "decouverte besoin cache",
-      "reformulation",
-      "argumentation durabilite",
-      "traitement objection prix",
-      "vente garantie",
-      "vente protection esthetique Estaly",
-      "presentation financement"
+      "decouverte du risque (enfants, animaux, usage)",
+      "vente Estaly avec exemple tache/accroc",
+      "vente GLD sur mecanisme/tissu",
+      "presentation Cpay transparente",
+      "traitement objection prix vers une option de paiement"
     ],
     successCriteria: [
-      "questionner l'usage reel",
-      "reformuler le besoin cache",
-      "proposer garantie, protection esthetique Estaly ou livraison",
-      "closing doux"
+      "Estaly proposee et reliee a un risque visible",
+      "GLD proposee et reliee a un risque concret",
+      "Cpay proposee si frein budget exprime",
+      "aucun service force, aucune promesse interdite"
     ]
   },
   {
     id: "literie-couple-indecis",
-    title: "Literie - Couple indecis",
+    title: "Literie - cle d'entree pour GLD + Cpay",
     department: "Literie",
     difficulty: "beginner",
-    serviceTargets: ["extension de garantie", "livraison", "financement"],
+    serviceTargets: [
+      "GLD garantie longue duree",
+      "carte/credit Cpay",
+      "protection esthetique Estaly"
+    ],
     trainingFocus: [
-      "vendre la garantie comme reduction du risque de regret",
-      "presenter le financement sans pression",
-      "rassurer par une methode de choix explicite"
+      "vendre la GLD comme reduction du risque de regret (10-15 ans)",
+      "presenter Cpay sans pression pour rendre l'investissement accessible",
+      "evoquer Estaly si tache/enfant/animaux dans la chambre"
     ],
     clientPersona: "Couple 40-50 ans, problemes de dos, peur de se tromper",
     visibleNeed: "Changer leur matelas",
     hiddenNeed: "Besoin de confort et peur de regretter un achat important",
     budget: "600 a 900 euros",
     objections: [
-      "On ne sait pas trop quoi choisir",
-      "C'est cher pour un matelas",
-      "On peut pas l'essayer longtemps",
       "La garantie sur un matelas, je ne vois pas l'interet",
-      "Le financement, on prefere eviter"
+      "Le credit on prefere eviter",
+      "Estaly pour un matelas, c'est exagere",
+      "On ne sait pas trop quoi choisir"
     ],
     expectedSkills: [
-      "decouverte besoin sante",
-      "argumentation confort et duree de vie",
-      "reassurance",
-      "closing progressif",
-      "vente garantie",
-      "presentation financement"
+      "decouverte besoin sante / duree de vie",
+      "vente GLD comme protection long terme",
+      "presentation Cpay pour soutenir le budget",
+      "evocation Estaly si pertinent",
+      "reassurance et closing progressif"
     ],
     successCriteria: [
-      "questionner le confort et la sante",
-      "valoriser l'investissement long terme",
-      "rassurer sur le choix",
-      "proposer une solution de paiement ou de protection adaptee"
+      "GLD reliee a la duree de vie attendue et au risque mecanisme/sommier",
+      "Cpay proposee transparente si budget tendu",
+      "Estaly mentionnee si risque taches/enfants/animaux",
+      "aucun service vendu sans accord du client"
     ]
   },
   {
     id: "cuisine-financement",
-    title: "Cuisine - Projet financement",
+    title: "Cuisine - cle d'entree pour Cpay + GLD",
     department: "Cuisine",
     difficulty: "intermediate",
-    serviceTargets: ["financement", "garantie", "livraison", "montage"],
+    serviceTargets: [
+      "carte/credit Cpay",
+      "GLD garantie longue duree",
+      "protection esthetique Estaly"
+    ],
     trainingFocus: [
-      "faire accepter le credit comme outil de projet",
-      "relier financement, livraison et montage au projet global",
-      "traiter la peur du budget sans minimiser"
+      "transformer le frein budget en projet via Cpay",
+      "vendre la GLD sur electromenager encastre + montage + transport",
+      "evoquer Estaly sur le plan de travail et les facades"
     ],
     clientPersona:
-      "Couple 30-40 ans, projet important, budget serre mais projet ambitieux",
+      "Couple 30-40 ans, projet important, budget serre mais ambitieux",
     visibleNeed: "Refaire toute la cuisine",
     hiddenNeed: "Veut y mettre le prix mais peur du budget total",
     budget: "3000 a 5000 euros",
     objections: [
       "C'est trop cher pour nous",
       "Le credit j'aime pas ca",
+      "La garantie c'est inutile c'est neuf",
       "On verra en fin d'annee"
     ],
     expectedSkills: [
-      "decouverte projet",
-      "argumentation services financement",
-      "decomplexer le credit",
-      "closing sur le projet global",
-      "vente garantie",
-      "vente livraison montage"
+      "decouverte du projet complet",
+      "vente Cpay reliee au projet (option, pas pression)",
+      "vente GLD sur electromenager + transport + montage",
+      "Estaly sur plan de travail / facades",
+      "closing par services successifs"
     ],
     successCriteria: [
-      "explorer le projet complet",
-      "presenter le financement naturellement",
-      "presenter cout, conditions et caractere facultatif du financement",
-      "lier les services au risque projet"
+      "Cpay presentee transparente et facultative",
+      "GLD reliee a au moins 2 risques concrets",
+      "Estaly mentionnee sur surface fragile",
+      "ne pas perdre la vente services par peur de l'objection"
     ]
   },
   {
     id: "electromenager-comparateur",
-    title: "Electromenager - Client presse comparateur",
+    title: "Electromenager - cle d'entree pour GLD + Cpay",
     department: "Electromenager",
     difficulty: "intermediate",
-    serviceTargets: ["extension de garantie", "livraison rapide", "financement"],
+    serviceTargets: [
+      "GLD garantie longue duree",
+      "carte/credit Cpay",
+      "livraison rapide"
+    ],
     trainingFocus: [
-      "differencier magasin vs internet par le service",
-      "vendre la garantie comme solution de tranquillite",
-      "presenter une option de paiement sans ralentir le client"
+      "differencier le magasin d'internet par la GLD (panne, hotline, echange)",
+      "vendre la GLD specifiquement sur le risque panne d'un lave-linge",
+      "proposer Cpay rapidement pour ne pas ralentir le client"
     ],
     clientPersona:
       "Homme 28-38 ans, tres connecte, a deja compare les prix en ligne",
@@ -136,41 +149,38 @@ export const scenarios: Scenario[] = [
     budget: "400 a 600 euros",
     objections: [
       "J'ai vu moins cher sur Amazon",
-      "Je peux pas attendre pour la livraison",
       "La garantie c'est inutile j'ai la CB",
-      "Le credit pour un lave-linge, non merci"
+      "Le credit pour un lave-linge, non merci",
+      "Je peux pas attendre pour la livraison"
     ],
     expectedSkills: [
-      "differenciation vs internet",
-      "argumentation services",
-      "rapidite et efficacite",
-      "closing ferme",
-      "vente garantie",
-      "presentation financement courte"
+      "differenciation magasin vs internet par les services",
+      "vente GLD sur risque panne / immobilisation",
+      "presentation Cpay courte et transparente",
+      "closing rapide sans ralentir le client"
     ],
     successCriteria: [
-      "valoriser les services magasin",
-      "repondre a l'objection internet",
-      "conclure rapidement",
-      "proposer garantie ou livraison sans alourdir"
+      "GLD presentee avec exemple concret de panne",
+      "Cpay evoquee meme sur petit montant",
+      "service magasin oppose a l'offre internet",
+      "aucun forcing"
     ]
   },
   {
     id: "services-client-sceptique",
-    title: "Services - Client sceptique",
+    title: "Client sceptique - vendre les 3 services en confiance",
     department: "Services",
     difficulty: "advanced",
     serviceTargets: [
-      "extension de garantie",
+      "GLD garantie longue duree",
       "protection esthetique Estaly",
-      "credit",
-      "livraison",
-      "montage"
+      "carte/credit Cpay"
     ],
     trainingFocus: [
-      "creer la confiance avant de proposer les services",
-      "vendre garantie et protection esthetique Estaly avec exemples concrets",
-      "presenter le credit de facon transparente et non forcee"
+      "creer la confiance AVANT toute proposition de service",
+      "vendre GLD avec un exemple concret de panne",
+      "vendre Estaly comme complement (pas une assurance)",
+      "presenter Cpay de facon transparente et non forcee"
     ],
     clientPersona: "Client 45-55 ans, mefiant, mauvaises experiences passees",
     visibleNeed: "Acheter un TV mais n'a pas encore decide",
@@ -178,23 +188,22 @@ export const scenarios: Scenario[] = [
     budget: "500 a 800 euros",
     objections: [
       "La garantie c'est des arnaques",
-      "La protection esthetique, c'est encore une assurance cachee",
+      "Estaly c'est encore une assurance cachee",
       "Le credit ca coute trop cher",
-      "J'ai pas besoin de montage",
       "Je vais reflechir"
     ],
     expectedSkills: [
       "instaurer la confiance",
-      "valoriser garantie concretement",
-      "valoriser protection esthetique Estaly concretement",
-      "presenter credit avec transparence",
-      "closing patient"
+      "vente GLD avec exemple precis et transparence",
+      "vente Estaly comme protection, jamais comme assurance",
+      "presentation Cpay transparente, facultative, soumise acceptation",
+      "closing patient apres autorisation"
     ],
     successCriteria: [
-      "creer la confiance avant de proposer les services",
-      "citer des exemples concrets de garantie",
-      "citer des exemples concrets de protection esthetique Estaly",
-      "ne pas forcer"
+      "GLD proposee apres confiance etablie, avec exemple",
+      "Estaly proposee avec vocabulaire correct (protection esthetique)",
+      "Cpay presentee transparente, sans promesse interdite",
+      "ne pas reculer face au scepticisme"
     ]
   }
 ];

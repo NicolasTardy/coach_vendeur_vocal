@@ -58,6 +58,7 @@ export default function Home() {
   const [difficulty, setDifficulty] = useState("all");
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [report, setReport] = useState<FinalReport | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [textInput, setTextInput] = useState("");
   const [error, setError] = useState("");
@@ -241,9 +242,11 @@ export default function Home() {
     const data = (await response.json()) as {
       report: FinalReport;
       session: TrainingSession;
+      reportId: string;
     };
     setReport(data.report);
     setSession(data.session);
+    setReportId(data.reportId);
     setStep("report");
     setStatus("idle");
   }
@@ -313,10 +316,12 @@ export default function Home() {
         {step === "report" && report && session && (
           <ReportScreen
             report={report}
+            reportId={reportId}
             onReplay={replayMoment}
             onNew={() => {
               setSession(null);
               setReport(null);
+              setReportId(null);
               setStep("setup");
             }}
           />
@@ -661,25 +666,22 @@ function Transcript({ turns }: { turns: TranscriptTurn[] }) {
 
 function ReportScreen({
   report,
+  reportId,
   onReplay,
   onNew
 }: {
   report: FinalReport;
+  reportId: string | null;
   onReplay: (turnIndex: number) => void;
   onNew: () => void;
 }) {
   const skills = [
-    ["Accueil", report.score.accueil, 10],
     ["Decouverte", report.score.decouverte, 15],
-    ["Reformulation", report.score.reformulation, 10],
-    ["Produit", report.score.argumentationProduit, 15],
-    ["Services", report.score.argumentationServices, 15],
-    ["Credit", report.score.financement, 10],
-    ["Garantie", report.score.garantieExtension, 10],
-    ["Estaly", report.score.assuranceEsthetisme, 10],
-    ["Objections", report.score.objections, 15],
-    ["Closing", report.score.closing, 10],
-    ["Relation", report.score.relationnel, 10]
+    ["Carte & credit Cpay", report.score.financement, 25],
+    ["GLD (garantie)", report.score.garantieExtension, 25],
+    ["Estaly (esthetique)", report.score.assuranceEsthetisme, 25],
+    ["Objections services", report.score.objections, 5],
+    ["Closing", report.score.closing, 5]
   ] as const;
 
   return (
@@ -770,6 +772,15 @@ function ReportScreen({
           ))}
         </div>
       </div>
+
+      {reportId && (
+        <a
+          href={`/api/reports/${reportId}/pdf`}
+          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-md bg-cobalt px-4 py-4 text-sm font-black text-white"
+        >
+          Telecharger le PDF
+        </a>
+      )}
 
       <button
         className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-md bg-tomato px-4 py-4 text-sm font-black text-white"
