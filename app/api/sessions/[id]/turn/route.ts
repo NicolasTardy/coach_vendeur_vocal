@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
 import { getScenario } from "@/lib/scenarios";
+import { getSession } from "@/lib/auth/session";
+import { getTrainingSession, updateTrainingSession } from "@/lib/db/sessions-store";
 import { ClientPersonaEngine } from "@/lib/services/conversation-engine";
 import { OpenAISpeechToTextService } from "@/lib/services/speech-to-text-service";
 import { OpenAITextToSpeechService } from "@/lib/services/text-to-speech-service";
-import { localStore } from "@/lib/storage/local-store";
 import type { TranscriptTurn } from "@/lib/types";
 
 type Params = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
 export async function POST(request: Request, { params }: Params) {
-  const { id } = await params;
-  const session = await localStore.getSession(id);
+  const auth = await getSession();
+  if (!auth.userId) {
+    return NextResponse.json({ error: "Non authentifie." }, { status: 401 });
+  }
 
-  if (!session) {
+  const { id } = await params;
+  const session = getTrainingSession(id);
+  if (!session || session.userId !== auth.userId) {
     return NextResponse.json({ error: "Session introuvable." }, { status: 404 });
   }
 
   const scenario = getScenario(session.scenarioId);
-
   if (!scenario) {
     return NextResponse.json({ error: "Scenario introuvable." }, { status: 404 });
   }
@@ -31,7 +33,6 @@ export async function POST(request: Request, { params }: Params) {
   const audio = formData.get("audio");
 
   let sellerText = textInput;
-
   if (!sellerText && audio instanceof Blob) {
     const stt = new OpenAISpeechToTextService();
     sellerText = (await stt.transcribe(audio)).trim();
@@ -62,7 +63,6 @@ export async function POST(request: Request, { params }: Params) {
 
   const tts = new OpenAITextToSpeechService();
   let audioUrl: string | null = null;
-
   try {
     audioUrl = await tts.synthesize(clientText);
   } catch (error) {
@@ -82,11 +82,11 @@ export async function POST(request: Request, { params }: Params) {
   };
 
   session.transcript = [...session.transcript, sellerTurn, clientTurn];
-  await localStore.updateSession(session);
+  const persisted = updateTrainingSession(session);
 
   return NextResponse.json({
     sellerText,
     clientTurn: responseClientTurn,
-    session
+    session: persisted
   });
 }

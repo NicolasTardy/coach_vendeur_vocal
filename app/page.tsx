@@ -14,8 +14,10 @@ import {
   Sparkles,
   Trophy
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   BrowserMediaRecorderProvider,
   BrowserSpeechRecognitionProvider,
@@ -31,9 +33,28 @@ type Step = "setup" | "simulation" | "report";
 type Status = "idle" | "recording" | "client" | "analysis";
 
 export default function Home() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("setup");
   const [pseudo, setPseudo] = useState("");
   const [selectedScenarioId, setSelectedScenarioId] = useState(scenarios[0].id);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((response) => response.json())
+      .then((data: { user?: { pseudo: string } | null }) => {
+        if (data.user?.pseudo) {
+          setPseudo(data.user.pseudo);
+        } else {
+          router.replace("/welcome");
+        }
+      })
+      .catch(() => router.replace("/welcome"));
+  }, [router]);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/welcome");
+  }
   const [difficulty, setDifficulty] = useState("all");
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [report, setReport] = useState<FinalReport | null>(null);
@@ -54,18 +75,10 @@ export default function Home() {
   async function startSession() {
     setError("");
 
-    if (pseudo.trim().length < 2) {
-      setError("Choisis un pseudo de 2 caracteres minimum.");
-      return;
-    }
-
     const response = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        pseudo: pseudo.trim(),
-        scenarioId: selectedScenarioId
-      })
+      body: JSON.stringify({ scenarioId: selectedScenarioId })
     });
 
     if (!response.ok) {
@@ -80,6 +93,7 @@ export default function Home() {
     setSession(data.session);
     setReport(null);
     setStep("simulation");
+    playClientVoice(data.session.transcript.at(-1));
   }
 
   async function startRecording() {
@@ -263,12 +277,12 @@ export default function Home() {
           step={step}
           pseudo={pseudo}
           onBack={step === "setup" ? undefined : () => setStep("setup")}
+          onLogout={logout}
         />
 
         {step === "setup" && (
           <SetupScreen
             pseudo={pseudo}
-            setPseudo={setPseudo}
             selectedScenarioId={selectedScenarioId}
             setSelectedScenarioId={setSelectedScenarioId}
             difficulty={difficulty}
@@ -315,11 +329,13 @@ export default function Home() {
 function AppTopBar({
   step,
   pseudo,
-  onBack
+  onBack,
+  onLogout
 }: {
   step: Step;
   pseudo: string;
   onBack?: () => void;
+  onLogout?: () => void;
 }) {
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-paper/95 px-4 py-3 backdrop-blur">
@@ -343,8 +359,28 @@ function AppTopBar({
           </h1>
         </div>
       </div>
-      <div className="rounded-full bg-ink px-3 py-1 text-xs font-bold text-white">
-        Mobile
+      <div className="flex items-center gap-2">
+        <Link
+          href="/espace"
+          className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-black text-ink"
+        >
+          Mon espace
+        </Link>
+        <Link
+          href="/formations"
+          className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-black text-ink"
+        >
+          Formations
+        </Link>
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            type="button"
+            className="rounded-full bg-ink px-3 py-1 text-xs font-bold text-white"
+          >
+            Sortir
+          </button>
+        )}
       </div>
     </header>
   );
@@ -352,7 +388,6 @@ function AppTopBar({
 
 function SetupScreen({
   pseudo,
-  setPseudo,
   selectedScenarioId,
   setSelectedScenarioId,
   difficulty,
@@ -363,7 +398,6 @@ function SetupScreen({
   onStart
 }: {
   pseudo: string;
-  setPseudo: (value: string) => void;
   selectedScenarioId: string;
   setSelectedScenarioId: (value: string) => void;
   difficulty: string;
@@ -388,17 +422,12 @@ function SetupScreen({
           <Sparkles className="shrink-0 text-citron" size={30} />
         </div>
 
-        <label className="block text-sm font-bold text-white/80" htmlFor="pseudo">
-          Pseudo anonyme
-        </label>
-        <input
-          id="pseudo"
-          value={pseudo}
-          maxLength={24}
-          onChange={(event) => setPseudo(event.target.value)}
-          placeholder="ex: Nova42"
-          className="mt-2 h-12 w-full rounded-md border border-white/15 bg-white px-4 text-base font-bold text-ink outline-none ring-citron focus:ring-4"
-        />
+        <p className="text-sm font-bold text-white/80">Connecte en tant que</p>
+        <p className="mt-1 text-xl font-black">{pseudo || "…"}</p>
+        <p className="mt-3 rounded-md bg-white/10 p-3 text-xs leading-5 text-white/75">
+          Focus de l'app : faire emerger Carte & credit, Estaly, GLD. Le produit
+          est juste la cle d'entree.
+        </p>
       </div>
 
       <SegmentedControl
