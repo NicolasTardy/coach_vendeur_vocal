@@ -16,7 +16,13 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { FormEvent, useMemo, useRef, useState } from "react";
-import { BrowserMediaRecorderProvider } from "@/lib/services/voice-input-provider";
+import {
+  BrowserMediaRecorderProvider,
+  BrowserSpeechRecognitionProvider,
+  canUseMediaRecorder,
+  canUseSpeechRecognition,
+  type VoiceInputProvider
+} from "@/lib/services/voice-input-provider";
 import { scenarios } from "@/lib/scenarios";
 import type { FinalReport, Scenario, TrainingSession, TranscriptTurn } from "@/lib/types";
 import { cx } from "@/lib/utils";
@@ -34,7 +40,7 @@ export default function Home() {
   const [status, setStatus] = useState<Status>("idle");
   const [textInput, setTextInput] = useState("");
   const [error, setError] = useState("");
-  const recorderRef = useRef<BrowserMediaRecorderProvider | null>(null);
+  const recorderRef = useRef<VoiceInputProvider | null>(null);
 
   const filteredScenarios = useMemo(() => {
     return difficulty === "all"
@@ -79,14 +85,16 @@ export default function Home() {
   async function startRecording() {
     setError("");
 
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    if (!canUseMediaRecorder() && !canUseSpeechRecognition()) {
       setError(
-        "Micro non supporte dans ce navigateur. Utilise la saisie texte pour tester."
+        "Parole non supportee dans ce navigateur. Utilise la saisie texte pour tester."
       );
       return;
     }
 
-    const provider = new BrowserMediaRecorderProvider();
+    const provider = canUseMediaRecorder()
+      ? new BrowserMediaRecorderProvider()
+      : new BrowserSpeechRecognitionProvider();
     recorderRef.current = provider;
 
     try {
@@ -102,9 +110,16 @@ export default function Home() {
   }
 
   async function stopRecording() {
-    const blob = await recorderRef.current?.stop();
+    const result = await recorderRef.current?.stop();
+
+    if (!result?.audio && !result?.text.trim()) {
+      setStatus("idle");
+      setError("Je n'ai pas capte de phrase. Reessaie ou utilise la saisie texte.");
+      return;
+    }
+
     setStatus("client");
-    await sendTurn(blob ?? null, "");
+    await sendTurn(result?.audio ?? null, result?.text ?? "");
   }
 
   async function submitText(event: FormEvent<HTMLFormElement>) {
