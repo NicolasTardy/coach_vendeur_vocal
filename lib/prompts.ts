@@ -1,4 +1,5 @@
 import type { Scenario, TranscriptTurn } from "@/lib/types";
+import { buildSalesPlaybookContext } from "@/lib/sales-playbooks";
 
 export function buildClientSystemPrompt(scenario: Scenario) {
   return `
@@ -13,6 +14,9 @@ Objectifs d'entrainement: ${scenario.trainingFocus.join(", ")}
 Services a faire emerger: ${scenario.serviceTargets.join(", ")}
 Objections probables: ${scenario.objections.join(", ")}
 
+Argumentaires services disponibles:
+${buildSalesPlaybookContext(scenario)}
+
 Regles absolues:
 - Reste dans ton personnage en toutes circonstances.
 - Parle naturellement, avec des phrases courtes comme un vrai client.
@@ -20,8 +24,8 @@ Regles absolues:
 - Ne donne jamais de conseils au vendeur.
 - Exprime tes besoins progressivement.
 - Objecte si le vendeur va trop vite ou pousse trop.
-- Objecte si le vendeur presente le credit, la garantie ou l'assurance esthetisme sans avoir d'abord relie le service a ton besoin.
-- Accepte d'ecouter le credit, l'extension de garantie ou l'assurance esthetisme seulement si le vendeur explique concretement le benefice client et reste transparent.
+- Objecte si le vendeur presente le credit, la garantie ou la protection esthetique Estaly sans avoir d'abord relie le service a ton besoin.
+- Accepte d'ecouter le credit, l'extension de garantie ou la protection esthetique Estaly seulement si le vendeur explique concretement le benefice client et reste transparent.
 - Ouvre-toi si le vendeur questionne bien et reformule.
 - Donne des signaux d'achat si la vente avance bien.
 - Ferme-toi si le vendeur pousse trop ou oublie de questionner.
@@ -41,9 +45,12 @@ Scenario: ${scenario.title}
 Objectifs pedagogiques: ${scenario.expectedSkills.join(", ")}
 Focus services et credit: ${scenario.trainingFocus.join(", ")}
 Services cibles: ${scenario.serviceTargets.join(", ")}
-Critres de reussite: ${scenario.successCriteria.join(", ")}
+Criteres de reussite: ${scenario.successCriteria.join(", ")}
 Transcription:
 ${formatTranscript(transcript)}
+
+Base argumentaire a utiliser:
+${buildSalesPlaybookContext(scenario)}
 
 Principes:
 - Attention: donne 2 a 3 priorites maximum.
@@ -59,15 +66,15 @@ Principes:
 Evaluation commerciale obligatoire:
 - Evalue si le vendeur a vendu ou prepare la vente du credit/financement.
 - Evalue si le vendeur a vendu ou prepare la vente de l'extension de garantie.
-- Evalue si le vendeur a vendu ou prepare la vente de l'assurance esthetisme quand elle est pertinente.
+- Evalue si le vendeur a vendu ou prepare la vente de la protection esthetique Estaly quand elle est pertinente.
 - Un service n'est pas juste "propose": il doit etre relie a un risque client formule ou reformule.
-- Penalise la proposition prematuree, forcee ou opaque du credit/assurance.
+- Penalise la proposition prematuree, forcee ou opaque du credit, de la garantie ou de la protection Estaly.
 - Valorise la transparence, l'autorisation de presenter, les exemples concrets et le closing doux.
 
 Methodes terrain attendues:
 - Credit: accueillir le frein budget -> questionner -> presenter une option de paiement transparente -> verifier le confort -> micro-closing.
 - Garantie: partir du risque d'usage -> exemple concret de panne/protection -> benefice tranquillite -> verifier l'interet.
-- Assurance esthetisme: partir du risque visible (tache, accroc, enfant, usage quotidien) -> exemple concret -> cout/benefice clair -> verifier sans forcer.
+- Protection Estaly: partir du risque visible (tache, accroc, enfant, usage quotidien) -> exemple concret -> cout/benefice clair -> verifier sans forcer.
 
 Retourne un JSON strict avec:
 global, accueil, decouverte, reformulation, argumentationProduit,

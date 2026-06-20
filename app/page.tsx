@@ -567,7 +567,7 @@ function ReportScreen({
     ["Services", report.score.argumentationServices, 15],
     ["Credit", report.score.financement, 10],
     ["Garantie", report.score.garantieExtension, 10],
-    ["Esthetisme", report.score.assuranceEsthetisme, 10],
+    ["Estaly", report.score.assuranceEsthetisme, 10],
     ["Objections", report.score.objections, 15],
     ["Closing", report.score.closing, 10],
     ["Relation", report.score.relationnel, 10]

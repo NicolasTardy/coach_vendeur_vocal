@@ -34,12 +34,12 @@ export function buildFallbackReport(
       ],
       priorities: [
         "Reformuler explicitement le besoin cache du client.",
-        "Relier credit, garantie ou assurance esthetisme a un risque client formule.",
+        "Relier credit, garantie ou protection esthetique Estaly a un risque client formule.",
         "Traiter l'objection avec une question avant d'argumenter."
       ],
       recommendedExercises: [
         "Refaire une objection credit en 3 minutes avec la methode accueillir-questionner-presenter-verifier.",
-        "S'entrainer a proposer une garantie ou assurance esthetisme a partir d'un risque client reel."
+        "S'entrainer a proposer une garantie ou protection Estaly a partir d'un risque client reel."
       ]
     },
     keyMoments: [
@@ -76,7 +76,7 @@ export function buildFallbackReport(
       "Objection prix: accueillir, questionner, valoriser, proposer une alternative, closer.",
       "Un service se vend mieux quand il protege un risque exprime par le client.",
       "Credit: transparence, confort budgetaire, verification, jamais de forcing.",
-      "Assurance esthetisme: taches, accrocs, usage quotidien, exemple concret."
+      "Protection Estaly: taches, accrocs, usage quotidien, exemple concret."
     ],
     rawText: ""
   };

@@ -8,12 +8,12 @@ export const scenarios: Scenario[] = [
     difficulty: "beginner",
     serviceTargets: [
       "extension de garantie",
-      "assurance esthetisme",
+      "protection esthetique Estaly",
       "livraison"
     ],
     trainingFocus: [
       "vendre la protection du canape avec les enfants",
-      "relier l'assurance esthetisme aux taches et petits accidents",
+      "relier la protection esthetique Estaly aux taches et petits accidents",
       "presenter le financement comme une option de confort budgetaire"
     ],
     clientPersona: "Couple avec 2 enfants, 35-42 ans, prudents",
@@ -26,7 +26,7 @@ export const scenarios: Scenario[] = [
       "On va reflechir",
       "On a vu moins cher sur internet",
       "La garantie ca ne sert a rien",
-      "L'assurance esthetisme ca fait encore un truc en plus",
+      "La protection esthetique ca fait encore un truc en plus",
       "On ne veut pas prendre de credit"
     ],
     expectedSkills: [
@@ -35,13 +35,13 @@ export const scenarios: Scenario[] = [
       "argumentation durabilite",
       "traitement objection prix",
       "vente garantie",
-      "vente assurance esthetisme",
+      "vente protection esthetique Estaly",
       "presentation financement"
     ],
     successCriteria: [
       "questionner l'usage reel",
       "reformuler le besoin cache",
-      "proposer garantie, assurance esthetisme ou livraison",
+      "proposer garantie, protection esthetique Estaly ou livraison",
       "closing doux"
     ]
   },
@@ -114,7 +114,7 @@ export const scenarios: Scenario[] = [
     successCriteria: [
       "explorer le projet complet",
       "presenter le financement naturellement",
-      "interets rembourses en bon d'achat",
+      "presenter cout, conditions et caractere facultatif du financement",
       "lier les services au risque projet"
     ]
   },
@@ -162,14 +162,14 @@ export const scenarios: Scenario[] = [
     difficulty: "advanced",
     serviceTargets: [
       "extension de garantie",
-      "assurance esthetisme",
+      "protection esthetique Estaly",
       "credit",
       "livraison",
       "montage"
     ],
     trainingFocus: [
       "creer la confiance avant de proposer les services",
-      "vendre garantie et assurance esthetisme avec exemples concrets",
+      "vendre garantie et protection esthetique Estaly avec exemples concrets",
       "presenter le credit de facon transparente et non forcee"
     ],
     clientPersona: "Client 45-55 ans, mefiant, mauvaises experiences passees",
@@ -178,7 +178,7 @@ export const scenarios: Scenario[] = [
     budget: "500 a 800 euros",
     objections: [
       "La garantie c'est des arnaques",
-      "L'assurance esthetisme, c'est encore une assurance cachee",
+      "La protection esthetique, c'est encore une assurance cachee",
       "Le credit ca coute trop cher",
       "J'ai pas besoin de montage",
       "Je vais reflechir"
@@ -186,14 +186,14 @@ export const scenarios: Scenario[] = [
     expectedSkills: [
       "instaurer la confiance",
       "valoriser garantie concretement",
-      "valoriser assurance esthetisme concretement",
-      "presenter credit avec interets rembourses",
+      "valoriser protection esthetique Estaly concretement",
+      "presenter credit avec transparence",
       "closing patient"
     ],
     successCriteria: [
       "creer la confiance avant de proposer les services",
       "citer des exemples concrets de garantie",
-      "citer des exemples concrets d'assurance esthetisme",
+      "citer des exemples concrets de protection esthetique Estaly",
       "ne pas forcer"
     ]
   }
