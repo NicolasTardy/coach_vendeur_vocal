@@ -459,8 +459,9 @@ function AppTopBar({
   onLogout?: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-paper/95 px-4 py-3 backdrop-blur">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-20 border-b border-black/10 bg-paper/95 px-4 py-3 backdrop-blur">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
         {onBack && (
           <button
             aria-label="Retour"
@@ -471,25 +472,26 @@ function AppTopBar({
             <ArrowLeft size={18} />
           </button>
         )}
-        <div>
+        <div className="min-w-0">
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.08em] text-forest">
             SimuVente IA
           </p>
-          <h1 className="text-base font-black leading-tight">
+          <h1 className="truncate text-base font-black leading-tight">
             {step === "setup" ? "Entrainement vocal" : pseudo || "Session"}
           </h1>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-0 sm:flex sm:items-center">
         <Link
           href="/espace"
-          className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-black text-ink"
+          className="flex min-h-9 items-center justify-center rounded-md border border-black/15 bg-white px-2 text-center text-xs font-black text-ink"
         >
-          Mon espace
+          Espace
         </Link>
         <Link
           href="/formations"
-          className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-black text-ink"
+          className="flex min-h-9 items-center justify-center rounded-md border border-black/15 bg-white px-2 text-center text-xs font-black text-ink"
         >
           Formations
         </Link>
@@ -497,7 +499,7 @@ function AppTopBar({
           <button
             onClick={onLogout}
             type="button"
-            className="rounded-full bg-ink px-3 py-1 text-xs font-bold text-white"
+            className="min-h-9 rounded-md bg-ink px-2 text-xs font-bold text-white"
           >
             Sortir
           </button>
@@ -543,7 +545,7 @@ function SetupScreen({
         <p className="mt-1 text-xl font-black">{pseudo || "…"}</p>
         <p className="mt-3 rounded-md bg-white/10 p-3 text-xs leading-5 text-white/75">
           Depart : le client est deja conseille, satisfait, et hesite entre 2
-          ou 3 produits. Objectif : l'aider a choisir puis proposer mensualites
+          ou 3 produits. Objectif : l&apos;aider a choisir puis proposer mensualites
           et protections utiles.
         </p>
         <div className="mt-3 rounded-md bg-white/10 p-3 text-xs leading-5 text-white/75">
@@ -1004,7 +1006,7 @@ function ReportScreen({
             Vous: <q>{moment.sellerQuote}</q>
           </p>
           <p className="mt-3 text-xs font-black uppercase tracking-[0.08em] text-forest">
-            Ce qu'il fallait capter / comment adapter
+            Ce qu&apos;il fallait capter / comment adapter
           </p>
           <p className="mt-2 text-sm leading-5 text-black/70">
             {moment.betterAnswer}
