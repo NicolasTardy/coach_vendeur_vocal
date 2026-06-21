@@ -11,6 +11,9 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
+const MAX_SELLER_TURNS = 5;
+const MAX_CLIENT_TURNS = 5;
+
 export async function POST(request: Request, { params }: Params) {
   const auth = await getSession();
   if (!auth.userId) {
@@ -28,9 +31,26 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Scenario introuvable." }, { status: 404 });
   }
 
+  const sellerTurnsCount = session.transcript.filter(
+    (turn) => turn.speaker === "seller"
+  ).length;
+  const clientTurnsCount = session.transcript.filter(
+    (turn) => turn.speaker === "client"
+  ).length;
+
+  if (sellerTurnsCount >= MAX_SELLER_TURNS) {
+    return NextResponse.json(
+      { error: "Limite de 5 prises de parole vendeur atteinte." },
+      { status: 409 }
+    );
+  }
+
   const formData = await request.formData();
   const textInput = String(formData.get("text") ?? "").trim();
   const audio = formData.get("audio");
+  const shouldGenerateAudio =
+    String(formData.get("includeAudio") ?? "") === "true" &&
+    auth.clientVoiceUnlocked === true;
 
   let sellerText = textInput;
   if (!sellerText && audio instanceof Blob) {
@@ -45,6 +65,28 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
+  if (isTooShortTranscription(sellerText)) {
+    return NextResponse.json(
+      {
+        error:
+          "Transcription trop courte. Le micro a capte seulement un fragment, reessaie en parlant apres le bip mentalement puis attends une seconde avant d'arreter.",
+        sellerText
+      },
+      { status: 422 }
+    );
+  }
+
+  if (isLikelyIncompleteSellerText(sellerText)) {
+    return NextResponse.json(
+      {
+        error:
+          "Phrase vendeur incomplete. Reessaie avant de continuer la simulation.",
+        sellerText
+      },
+      { status: 422 }
+    );
+  }
+
   const now = new Date().toISOString();
   const sellerTurn: TranscriptTurn = {
     id: crypto.randomUUID(),
@@ -55,38 +97,102 @@ export async function POST(request: Request, { params }: Params) {
   };
 
   const engine = new ClientPersonaEngine();
-  const clientText = await engine.reply({
-    scenario,
-    transcript: session.transcript,
-    sellerText
-  });
-
-  const tts = new OpenAITextToSpeechService();
+  let responseClientTurn: TranscriptTurn | undefined;
   let audioUrl: string | null = null;
-  try {
-    audioUrl = await tts.synthesize(clientText);
-  } catch (error) {
-    console.error("TTS synthesis failed", error);
+
+  if (clientTurnsCount < MAX_CLIENT_TURNS) {
+    const clientText = await engine.reply({
+      scenario,
+      transcript: session.transcript,
+      sellerText
+    });
+
+    if (shouldGenerateAudio) {
+      const tts = new OpenAITextToSpeechService();
+      try {
+        audioUrl = await tts.synthesize(clientText);
+      } catch (error) {
+        console.error("TTS synthesis failed", error);
+      }
+    }
+
+    const clientTurn: TranscriptTurn = {
+      id: crypto.randomUUID(),
+      speaker: "client",
+      text: clientText,
+      timestamp: new Date().toISOString(),
+      contextIndex: session.transcript.length + 1
+    };
+    responseClientTurn = {
+      ...clientTurn,
+      audioUrl: audioUrl ?? undefined
+    };
   }
 
-  const clientTurn: TranscriptTurn = {
-    id: crypto.randomUUID(),
-    speaker: "client",
-    text: clientText,
-    timestamp: new Date().toISOString(),
-    contextIndex: session.transcript.length + 1
-  };
-  const responseClientTurn: TranscriptTurn = {
-    ...clientTurn,
-    audioUrl: audioUrl ?? undefined
-  };
-
-  session.transcript = [...session.transcript, sellerTurn, clientTurn];
+  session.transcript = responseClientTurn
+    ? [...session.transcript, sellerTurn, { ...responseClientTurn, audioUrl: undefined }]
+    : [...session.transcript, sellerTurn];
   const persisted = updateTrainingSession(session);
 
   return NextResponse.json({
     sellerText,
     clientTurn: responseClientTurn,
-    session: persisted
+    session: persisted,
+    maxTurnsReached:
+      sellerTurnsCount + 1 >= MAX_SELLER_TURNS ||
+      clientTurnsCount >= MAX_CLIENT_TURNS
   });
+}
+
+function isLikelyIncompleteSellerText(text: string) {
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?…]+$/g, "")
+    .replace(/\s+/g, " ");
+  const words = normalized.split(" ").filter(Boolean);
+  const incompleteEndings = [
+    "alors justement",
+    "puisque",
+    "parce que",
+    "et que",
+    "que",
+    "quand",
+    "si",
+    "avec",
+    "sans",
+    "pour",
+    "sur",
+    "dans",
+    "de",
+    "d'",
+    "d",
+    "j",
+    "j'",
+    "je",
+    "l",
+    "l'",
+    "m",
+    "m'",
+    "n",
+    "n'",
+    "qu'",
+    "pour ca j",
+    "pour ça j"
+  ];
+
+  if (incompleteEndings.some((ending) => normalized.endsWith(ending))) {
+    return true;
+  }
+
+  return false;
+}
+
+function isTooShortTranscription(text: string) {
+  const normalized = text
+    .trim()
+    .replace(/^[-–—\s]+/, "")
+    .replace(/\s+/g, " ");
+  const words = normalized.split(" ").filter(Boolean);
+  return words.length < 4;
 }

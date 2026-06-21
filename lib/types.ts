@@ -9,15 +9,14 @@ export type User = {
   createdAt: string;
 };
 
-export type Difficulty = "beginner" | "intermediate" | "advanced";
-
 export type Scenario = {
   id: string;
   title: string;
   department: string;
-  difficulty: Difficulty;
   serviceTargets: string[];
   trainingFocus: string[];
+  productOptions: string[];
+  openingLine: string;
   clientPersona: string;
   visibleNeed: string;
   hiddenNeed: string;

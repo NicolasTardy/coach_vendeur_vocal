@@ -100,7 +100,7 @@ function mockClientReply(scenario: Scenario, turnCount: number, sellerText: stri
   const normalized = sellerText.toLowerCase();
 
   if (turnCount < 2) {
-    return `Bonjour. Je regarde pour ${scenario.visibleNeed.toLowerCase()}, mais je ne veux pas me tromper.`;
+    return scenario.openingLine;
   }
 
   if (
@@ -124,5 +124,7 @@ function mockClientReply(scenario: Scenario, turnCount: number, sellerText: stri
     return "La proposition me parle. Si vous pouvez me rassurer sur le prix et la suite, on peut avancer.";
   }
 
-  return scenario.objections[turnCount % scenario.objections.length];
+  return `Je suis content de vos conseils, mais j'hesite encore. ${
+    scenario.objections[turnCount % scenario.objections.length]
+  }`;
 }

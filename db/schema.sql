@@ -11,7 +11,6 @@ CREATE TABLE scenarios (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   department TEXT NOT NULL,
-  difficulty TEXT NOT NULL,
   client_persona TEXT NOT NULL,
   visible_need TEXT NOT NULL,
   hidden_need TEXT NOT NULL,

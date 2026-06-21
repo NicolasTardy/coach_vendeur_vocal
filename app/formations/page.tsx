@@ -1,3 +1,5 @@
+/* eslint-disable react/no-unescaped-entities */
+
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Clock } from "lucide-react";
 import { formations } from "@/lib/formations";
@@ -27,9 +29,10 @@ export default function FormationsPage() {
         <section className="space-y-5 px-4 py-5">
           <div className="rounded-lg border border-black/10 bg-white p-4">
             <p className="text-sm leading-5 text-black/70">
-              Lis ces 3 fiches avant ta prochaine session. Le produit (canape,
-              TV, cuisine) n'est qu'une porte d'entree : la vraie performance se
-              joue sur ces 3 services.
+              Micro-learning avant simulation : lis la fiche, recite une phrase
+              sans modele, puis teste-la dans les 5 prises de parole vendeur.
+              L'objectif est de proposer mensualites, Cpay et protections sans
+              attendre la fin de l'echange.
             </p>
           </div>
 

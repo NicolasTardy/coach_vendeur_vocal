@@ -12,8 +12,8 @@ type Params = {
 
 export default async function FormationPage({ params }: Params) {
   const { slug } = await params;
-  const module = getFormation(slug);
-  if (!module) {
+  const formation = getFormation(slug);
+  if (!formation) {
     notFound();
   }
 
@@ -34,7 +34,7 @@ export default async function FormationPage({ params }: Params) {
                 Formation
               </p>
               <h1 className="truncate text-base font-black leading-tight">
-                {module.title}
+                {formation.title}
               </h1>
             </div>
           </div>

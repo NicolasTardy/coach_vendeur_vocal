@@ -52,7 +52,7 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
 
       try {
         return normalizeAiReport(
-          JSON.parse(extractDeepSeekText(data) || "{}"),
+          parseAiJsonObject(extractDeepSeekText(data)),
           buildFallbackReport(scenario, transcript)
         );
       } catch {
@@ -71,7 +71,7 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
 
       try {
         return normalizeAiReport(
-          JSON.parse(extractGeminiText(data) || "{}"),
+          parseAiJsonObject(extractGeminiText(data)),
           buildFallbackReport(scenario, transcript)
         );
       } catch {
@@ -110,7 +110,7 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
 
     try {
       return normalizeAiReport(
-        JSON.parse(data.output_text ?? "{}"),
+        parseAiJsonObject(data.output_text ?? ""),
         buildFallbackReport(scenario, transcript)
       );
     } catch {
@@ -123,6 +123,7 @@ function normalizeAiReport(
   payload: Record<string, unknown>,
   fallback: FinalReport
 ): FinalReport {
+  payload = asRecord(payload.report ?? payload.analysis ?? payload.result ?? payload);
   const scorePayload = asRecord(payload.score);
   const score = {
     global: normalizeGlobalScore(
@@ -225,6 +226,22 @@ function normalizeAiReport(
     memo: asStringArray(payload.memo) || fallback.memo,
     rawText: ""
   };
+}
+
+function parseAiJsonObject(text: string): Record<string, unknown> {
+  const cleaned = text
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    return {};
+  }
+
+  return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
 }
 
 function asStringArray(value: unknown) {

@@ -1,8 +1,45 @@
+/* eslint-disable react/no-unescaped-entities */
+
 import { Bullets, Quote, Section } from "./section";
 
 export function GldContent() {
   return (
     <>
+      <Section title="Micro-learning 3 minutes" accent="forest">
+        <Bullets
+          items={[
+            "Objectif: proposer la GLD sur un risque de panne concret, pas comme un reflexe vide.",
+            "Attention: retiens 3 risques: panne, immobilisation, cout de reparation.",
+            "Rappel actif: sans lire, donne un exemple de panne adapte au produit vendu."
+          ]}
+        />
+      </Section>
+
+      <Section title="Dans une vente en 5 tours" accent="forest">
+        <ol className="space-y-2">
+          <li>
+            <strong>Tour 1.</strong> Questionner frequence d'usage et impact
+            d'une panne.
+          </li>
+          <li>
+            <strong>Tour 2.</strong> Reformuler: "Si ca tombe en panne, c'est
+            surtout l'immobilisation qui vous gene."
+          </li>
+          <li>
+            <strong>Tour 3.</strong> Proposer GLD avec un risque produit:
+            batterie, moteur, electronique, mecanisme.
+          </li>
+          <li>
+            <strong>Tour 4.</strong> Clarifier: panne couverte, usure/mauvais
+            usage non couverts.
+          </li>
+          <li>
+            <strong>Tour 5.</strong> Micro-closing: "On la met dans la
+            simulation pour voir le budget complet ?"
+          </li>
+        </ol>
+      </Section>
+
       <Section title="En une phrase" accent="forest">
         <p>
           La <strong>Garantie prolongee BUT</strong> est un contrat d'assurance
@@ -113,6 +150,16 @@ export function GldContent() {
           reparation plein pot, ou de racheter neuf. La GLD, c'est 0 EUR
           d'imprevu.
         </p>
+      </Section>
+
+      <Section title="Mini-test avant simulation" accent="forest">
+        <Bullets
+          items={[
+            "Associe un risque GLD a: lave-linge, aspirateur balais, TV, sommier mecanique.",
+            "Redis sans lire la difference entre panne, usure et esthetique.",
+            "Reponds en 10 secondes a: 'La garantie, ca sert a rien sur du neuf'."
+          ]}
+        />
       </Section>
     </>
   );

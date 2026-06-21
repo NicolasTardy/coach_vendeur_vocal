@@ -1,8 +1,45 @@
+/* eslint-disable react/no-unescaped-entities */
+
 import { Bullets, Quote, Section } from "./section";
 
 export function CarteCreditContent() {
   return (
     <>
+      <Section title="Micro-learning 3 minutes" accent="cobalt">
+        <Bullets
+          items={[
+            "Objectif: savoir presenter Cpay en 20 secondes, sans cacher le mot credit.",
+            "Attention: retiens 3 mots seulement: mensualite, facultatif, acceptation.",
+            "Rappel actif: ferme la fiche et redis la phrase d'autorisation a voix haute."
+          ]}
+        />
+      </Section>
+
+      <Section title="Dans une vente en 5 tours" accent="cobalt">
+        <ol className="space-y-2">
+          <li>
+            <strong>Tour 1.</strong> Questionner usage + budget: "Vous aviez une
+            enveloppe a ne pas depasser ?"
+          </li>
+          <li>
+            <strong>Tour 2.</strong> Annoncer prix total puis mensualite
+            possible: "On peut le regarder aussi en budget mensuel."
+          </li>
+          <li>
+            <strong>Tour 3.</strong> Demander l'autorisation: "Je peux vous
+            presenter l'option Cpay ?"
+          </li>
+          <li>
+            <strong>Tour 4.</strong> Transparence: carte facultative, credit
+            renouvelable, soumise a acceptation.
+          </li>
+          <li>
+            <strong>Tour 5.</strong> Micro-closing: "On fait la simulation pour
+            voir si ca vous convient ?"
+          </li>
+        </ol>
+      </Section>
+
       <Section title="En une phrase" accent="cobalt">
         <p>
           La carte BUT Cpay Mastercard est une carte de fidelite associee a un
@@ -84,6 +121,16 @@ export function CarteCreditContent() {
           le sent, refuse, et vous perdez aussi la vente produit. Mieux vaut
           presenter calmement et perdre 30 secondes que perdre toute la vente.
         </p>
+      </Section>
+
+      <Section title="Mini-test avant simulation" accent="cobalt">
+        <Bullets
+          items={[
+            "Redis sans lire: la phrase d'autorisation Cpay.",
+            "Cite les 3 securites client: facultatif, soumis a acceptation, choix du client.",
+            "Reponds en 10 secondes a: 'Je ne veux pas de credit'."
+          ]}
+        />
       </Section>
     </>
   );

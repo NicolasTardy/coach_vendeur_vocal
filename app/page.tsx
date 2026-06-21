@@ -5,7 +5,6 @@ import {
   BadgeCheck,
   BarChart3,
   ChevronRight,
-  CircleStop,
   Mic,
   Play,
   Volume2,
@@ -17,7 +16,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   BrowserMediaRecorderProvider,
   BrowserSpeechRecognitionProvider,
@@ -31,6 +30,8 @@ import { cx } from "@/lib/utils";
 
 type Step = "setup" | "simulation" | "report";
 type Status = "idle" | "recording" | "client" | "analysis";
+const MAX_SELLER_TURNS = 5;
+const MAX_CLIENT_TURNS = 5;
 
 export default function Home() {
   const router = useRouter();
@@ -55,31 +56,33 @@ export default function Home() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/welcome");
   }
-  const [difficulty, setDifficulty] = useState("all");
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [report, setReport] = useState<FinalReport | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [textInput, setTextInput] = useState("");
+  const [sellerDraft, setSellerDraft] = useState("");
   const [error, setError] = useState("");
+  const [lastSellerText, setLastSellerText] = useState("");
+  const [clientVoiceEnabled, setClientVoiceEnabled] = useState(false);
+  const [clientVoicePassword, setClientVoicePassword] = useState("");
+  const [clientVoiceError, setClientVoiceError] = useState("");
   const recorderRef = useRef<VoiceInputProvider | null>(null);
-
-  const filteredScenarios = useMemo(() => {
-    return difficulty === "all"
-      ? scenarios
-      : scenarios.filter((scenario) => scenario.difficulty === difficulty);
-  }, [difficulty]);
 
   const selectedScenario =
     scenarios.find((scenario) => scenario.id === selectedScenarioId) ?? scenarios[0];
 
   async function startSession() {
     setError("");
+    setLastSellerText("");
 
     const response = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scenarioId: selectedScenarioId })
+      body: JSON.stringify({
+        scenarioId: selectedScenarioId,
+        includeAudio: clientVoiceEnabled
+      })
     });
 
     if (!response.ok) {
@@ -93,8 +96,11 @@ export default function Home() {
     };
     setSession(data.session);
     setReport(null);
+    setLastSellerText("");
     setStep("simulation");
-    playClientVoice(data.session.transcript.at(-1));
+    if (clientVoiceEnabled) {
+      playClientVoice(data.session.transcript.at(-1));
+    }
   }
 
   async function startRecording() {
@@ -107,9 +113,9 @@ export default function Home() {
       return;
     }
 
-    const provider = canUseMediaRecorder()
-      ? new BrowserMediaRecorderProvider()
-      : new BrowserSpeechRecognitionProvider();
+    const provider = canUseSpeechRecognition()
+      ? new BrowserSpeechRecognitionProvider()
+      : new BrowserMediaRecorderProvider();
     recorderRef.current = provider;
 
     try {
@@ -134,7 +140,7 @@ export default function Home() {
     }
 
     setStatus("client");
-    await sendTurn(result?.audio ?? null, result?.text ?? "");
+    await transcribeDraft(result?.audio ?? null, result?.text ?? "");
   }
 
   async function submitText(event: FormEvent<HTMLFormElement>) {
@@ -145,9 +151,67 @@ export default function Home() {
       return;
     }
 
+    setSellerDraft(text);
+    setLastSellerText(text);
     setTextInput("");
+  }
+
+  async function transcribeDraft(audio: Blob | null, text: string) {
+    if (!session) {
+      return;
+    }
+
+    const formData = new FormData();
+    if (audio) {
+      formData.append("audio", audio, "seller.webm");
+    }
+    if (text) {
+      formData.append("text", text);
+    }
+
+    const response = await fetch(`/api/sessions/${session.id}/transcribe`, {
+      method: "POST",
+      body: formData
+    });
+
+    setStatus("idle");
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        sellerText?: string;
+      };
+      if (data.sellerText) {
+        setSellerDraft(data.sellerText);
+        setLastSellerText(data.sellerText);
+      }
+      setError(data.error ?? "La transcription n'a pas pu etre traitee.");
+      return;
+    }
+
+    const data = (await response.json()) as { sellerText: string };
+    setSellerDraft(data.sellerText);
+    setLastSellerText(data.sellerText);
+    setError("");
+  }
+
+  async function validateSellerDraft() {
+    const text = sellerDraft.trim();
+
+    if (!text) {
+      setError("Aucune phrase vendeur a valider.");
+      return;
+    }
+
+    setSellerDraft("");
     setStatus("client");
     await sendTurn(null, text);
+  }
+
+  function editSellerDraft() {
+    setTextInput(sellerDraft);
+    setSellerDraft("");
+    setError("");
   }
 
   async function sendTurn(audio: Blob | null, text: string) {
@@ -162,6 +226,9 @@ export default function Home() {
     if (text) {
       formData.append("text", text);
     }
+    if (clientVoiceEnabled) {
+      formData.append("includeAudio", "true");
+    }
 
     const response = await fetch(`/api/sessions/${session.id}/turn`, {
       method: "POST",
@@ -170,17 +237,56 @@ export default function Home() {
 
     if (!response.ok) {
       setStatus("idle");
-      setError("Le tour n'a pas pu etre traite.");
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        sellerText?: string;
+      };
+      if (data.sellerText) {
+        setLastSellerText(data.sellerText);
+      }
+      setError(
+        data.sellerText
+          ? `${data.error ?? "Le tour n'a pas pu etre traite."} Phrase captee: "${data.sellerText}"`
+          : data.error ?? "Le tour n'a pas pu etre traite."
+      );
       return;
     }
 
     const data = (await response.json()) as {
       session: TrainingSession;
+      sellerText: string;
       clientTurn?: TranscriptTurn;
+      maxTurnsReached?: boolean;
     };
     setSession(data.session);
-    playClientVoice(data.clientTurn ?? data.session.transcript.at(-1));
+    setLastSellerText(data.sellerText);
+    if (clientVoiceEnabled && data.clientTurn) {
+      playClientVoice(data.clientTurn ?? data.session.transcript.at(-1));
+    }
+    if (data.maxTurnsReached || !data.clientTurn) {
+      setError("Limite atteinte : termine la session pour recevoir ton feedback.");
+    }
     setStatus("idle");
+  }
+
+  async function unlockClientVoice() {
+    const response = await fetch("/api/client-voice/unlock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: clientVoicePassword })
+    });
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      setClientVoiceError(data.error ?? "Voix client non activee.");
+      return;
+    }
+
+    setClientVoiceEnabled(true);
+    setClientVoicePassword("");
+    setClientVoiceError("");
   }
 
   async function playClientVoice(turn?: TranscriptTurn) {
@@ -270,6 +376,7 @@ export default function Home() {
     const data = (await response.json()) as { session: TrainingSession };
     setSession(data.session);
     setReport(null);
+    setLastSellerText("");
     setStep("simulation");
   }
 
@@ -288,9 +395,7 @@ export default function Home() {
             pseudo={pseudo}
             selectedScenarioId={selectedScenarioId}
             setSelectedScenarioId={setSelectedScenarioId}
-            difficulty={difficulty}
-            setDifficulty={setDifficulty}
-            scenarios={filteredScenarios}
+            scenarios={scenarios}
             selectedScenario={selectedScenario}
             error={error}
             onStart={startSession}
@@ -303,8 +408,18 @@ export default function Home() {
             scenario={selectedScenario}
             status={status}
             error={error}
+            lastSellerText={lastSellerText}
+            sellerDraft={sellerDraft}
+            setSellerDraft={setSellerDraft}
             textInput={textInput}
             setTextInput={setTextInput}
+            onValidateSellerDraft={validateSellerDraft}
+            onEditSellerDraft={editSellerDraft}
+            clientVoiceEnabled={clientVoiceEnabled}
+            clientVoicePassword={clientVoicePassword}
+            clientVoiceError={clientVoiceError}
+            setClientVoicePassword={setClientVoicePassword}
+            onUnlockClientVoice={unlockClientVoice}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onSubmitText={submitText}
@@ -322,6 +437,7 @@ export default function Home() {
               setSession(null);
               setReport(null);
               setReportId(null);
+              setLastSellerText("");
               setStep("setup");
             }}
           />
@@ -395,8 +511,6 @@ function SetupScreen({
   pseudo,
   selectedScenarioId,
   setSelectedScenarioId,
-  difficulty,
-  setDifficulty,
   scenarios,
   selectedScenario,
   error,
@@ -405,8 +519,6 @@ function SetupScreen({
   pseudo: string;
   selectedScenarioId: string;
   setSelectedScenarioId: (value: string) => void;
-  difficulty: string;
-  setDifficulty: (value: string) => void;
   scenarios: Scenario[];
   selectedScenario: Scenario;
   error: string;
@@ -421,7 +533,7 @@ function SetupScreen({
               Prochaine session
             </p>
             <h2 className="mt-1 text-2xl font-black leading-tight">
-              Client reel, feedback direct
+              Choisis le produit vendu
             </h2>
           </div>
           <Sparkles className="shrink-0 text-citron" size={30} />
@@ -430,21 +542,19 @@ function SetupScreen({
         <p className="text-sm font-bold text-white/80">Connecte en tant que</p>
         <p className="mt-1 text-xl font-black">{pseudo || "…"}</p>
         <p className="mt-3 rounded-md bg-white/10 p-3 text-xs leading-5 text-white/75">
-          Focus de l'app : faire emerger Carte & credit, Estaly, GLD. Le produit
-          est juste la cle d'entree.
+          Depart : le client est deja conseille, satisfait, et hesite entre 2
+          ou 3 produits. Objectif : l'aider a choisir puis proposer mensualites
+          et protections utiles.
         </p>
+        <div className="mt-3 rounded-md bg-white/10 p-3 text-xs leading-5 text-white/75">
+          <p className="font-black text-white">Format : 5 questions/reponses.</p>
+          <p>
+            Tu as 5 prises de parole vendeur. A chaque tour, capte un mot du
+            client, adapte ta reponse, puis avance vers le choix, le budget et
+            les services.
+          </p>
+        </div>
       </div>
-
-      <SegmentedControl
-        value={difficulty}
-        onChange={setDifficulty}
-        options={[
-          ["all", "Tous"],
-          ["beginner", "Debutant"],
-          ["intermediate", "Confirme"],
-          ["advanced", "Expert"]
-        ]}
-      />
 
       <div className="space-y-3">
         {scenarios.map((scenario) => (
@@ -462,13 +572,14 @@ function SetupScreen({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.08em] text-tomato">
-                  {scenario.department}
+                  Produit vendu
                 </p>
                 <h3 className="mt-1 text-lg font-black leading-snug">
                   {scenario.title}
                 </h3>
                 <p className="mt-2 text-sm leading-5 text-black/65">
-                  {scenario.clientPersona}
+                  Depart apres conseil : choix final, mensualites, Cpay et
+                  protections pertinentes.
                 </p>
               </div>
               <ChevronRight className="mt-2 shrink-0" size={19} />
@@ -479,12 +590,19 @@ function SetupScreen({
 
       <div className="rounded-lg border border-black/10 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
-          Session selectionnee
+          Produit selectionne
         </p>
         <p className="mt-2 text-sm leading-5 text-black/70">
-          Budget {selectedScenario.budget}. Objectif:{" "}
-          {selectedScenario.expectedSkills.slice(0, 2).join(", ")}.
+          {selectedScenario.title}. Le client simulera un budget de{" "}
+          {selectedScenario.budget}. Il hesite entre{" "}
+          {selectedScenario.productOptions.length} produits: a toi de conclure
+          le choix sans oublier mensualites et protections.
         </p>
+        <div className="mt-3 rounded-md bg-paper p-3 text-xs font-bold leading-5 text-black/65">
+          Reflexe attendu en 5 tours : 1 question de choix, 1 reformulation du
+          mot client, 1 lecture en mensualites, 1 proposition Cpay transparente,
+          1 protection utile reliee au risque.
+        </div>
       </div>
 
       {error && <p className="text-sm font-bold text-tomato">{error}</p>}
@@ -495,7 +613,7 @@ function SetupScreen({
         type="button"
       >
         <Mic size={20} />
-        Demarrer un entrainement vocal
+        Demarrer la session
       </button>
     </section>
   );
@@ -506,8 +624,18 @@ function SimulationScreen({
   scenario,
   status,
   error,
+  lastSellerText,
+  sellerDraft,
+  setSellerDraft,
   textInput,
   setTextInput,
+  clientVoiceEnabled,
+  clientVoicePassword,
+  clientVoiceError,
+  setClientVoicePassword,
+  onUnlockClientVoice,
+  onValidateSellerDraft,
+  onEditSellerDraft,
   onStartRecording,
   onStopRecording,
   onSubmitText,
@@ -518,8 +646,18 @@ function SimulationScreen({
   scenario: Scenario;
   status: Status;
   error: string;
+  lastSellerText: string;
+  sellerDraft: string;
+  setSellerDraft: (value: string) => void;
   textInput: string;
   setTextInput: (value: string) => void;
+  clientVoiceEnabled: boolean;
+  clientVoicePassword: string;
+  clientVoiceError: string;
+  setClientVoicePassword: (value: string) => void;
+  onUnlockClientVoice: () => void;
+  onValidateSellerDraft: () => void;
+  onEditSellerDraft: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
   onSubmitText: (event: FormEvent<HTMLFormElement>) => void;
@@ -529,11 +667,22 @@ function SimulationScreen({
   const clientTurn = [...session.transcript]
     .reverse()
     .find((turn) => turn.speaker === "client");
+  const sellerTurnsCount = session.transcript.filter(
+    (turn) => turn.speaker === "seller"
+  ).length;
+  const clientTurnsCount = session.transcript.filter(
+    (turn) => turn.speaker === "client"
+  ).length;
+  const remainingSellerTurns = Math.max(0, MAX_SELLER_TURNS - sellerTurnsCount);
+  const canAnswer = remainingSellerTurns > 0;
+  const hasDraft = Boolean(sellerDraft.trim());
   const statusLabel =
     status === "recording"
       ? "A vous"
       : status === "client"
-        ? "Le client parle"
+        ? clientVoiceEnabled
+          ? "Le client parle"
+          : "Le client repond"
         : status === "analysis"
           ? "Analyse"
           : "Pret";
@@ -552,7 +701,19 @@ function SimulationScreen({
             <h2 className="mt-1 text-xl font-black leading-tight">
               {scenario.title}
             </h2>
+            <p className="mt-1 text-xs font-bold text-black/55">
+              Vendeur {sellerTurnsCount}/{MAX_SELLER_TURNS} - Client{" "}
+              {Math.min(clientTurnsCount, MAX_CLIENT_TURNS)}/{MAX_CLIENT_TURNS}
+            </p>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-md bg-paper p-3 text-xs font-bold leading-5 text-black/65">
+          {canAnswer
+            ? `Il te reste ${remainingSellerTurns} prise${
+                remainingSellerTurns > 1 ? "s" : ""
+              } de parole pour proposer mensualites, Cpay et protections utiles.`
+            : "Les 5 prises de parole vendeur sont terminees. Lance l'analyse."}
         </div>
 
         <div className="mt-5 flex items-center justify-center gap-2 voice-wave">
@@ -573,51 +734,104 @@ function SimulationScreen({
         <blockquote className="mt-5 rounded-md bg-paper p-4 text-lg font-bold leading-7">
           {clientTurn?.text}
         </blockquote>
-        <button
-          className="mt-3 flex h-10 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 text-sm font-black disabled:opacity-45"
-          disabled={!clientTurn}
-          onClick={() => onSpeak(clientTurn)}
-          type="button"
-        >
-          <Volume2 size={17} />
-          Reecouter
-        </button>
-      </div>
-
-      <div className="mt-4 flex justify-center">
-        {status === "recording" ? (
+        {clientVoiceEnabled ? (
           <button
-            aria-label="Arreter l'enregistrement"
-            className="grid size-24 place-items-center rounded-full bg-ink text-white shadow-soft"
-            onClick={onStopRecording}
+            className="mt-3 flex h-10 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 text-sm font-black disabled:opacity-45"
+            disabled={!clientTurn}
+            onClick={() => onSpeak(clientTurn)}
             type="button"
           >
-            <CircleStop size={34} />
+            <Volume2 size={17} />
+            Reecouter
           </button>
         ) : (
-          <button
-            aria-label="Parler au client"
-            className="grid size-24 place-items-center rounded-full bg-tomato text-white shadow-soft disabled:opacity-55"
-            disabled={status !== "idle"}
-            onClick={onStartRecording}
-            type="button"
-          >
-            <Mic size={34} />
-          </button>
+          <div className="mt-3 rounded-md border border-black/10 bg-white p-3">
+            <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
+              Client par ecrit
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={clientVoicePassword}
+                onChange={(event) => setClientVoicePassword(event.target.value)}
+                placeholder="Mot de passe voix"
+                type="password"
+                className="h-10 min-w-0 flex-1 rounded-md border border-black/10 bg-paper px-3 text-sm font-semibold outline-none ring-forest focus:ring-4"
+              />
+              <button
+                className="flex h-10 items-center justify-center gap-2 rounded-md bg-ink px-3 text-xs font-black text-white"
+                onClick={onUnlockClientVoice}
+                type="button"
+              >
+                <Volume2 size={15} />
+                Activer
+              </button>
+            </div>
+            {clientVoiceError && (
+              <p className="mt-2 text-xs font-bold text-tomato">
+                {clientVoiceError}
+              </p>
+            )}
+          </div>
         )}
+      </div>
+
+      <div className="mt-4 flex flex-col items-center">
+        <button
+          aria-label="Maintenir pour parler au client"
+          className={cx(
+            "grid size-24 touch-none place-items-center rounded-full text-white shadow-soft disabled:opacity-55",
+            status === "recording" ? "bg-ink scale-105" : "bg-tomato"
+          )}
+          disabled={
+            (status !== "idle" && status !== "recording") || !canAnswer || hasDraft
+          }
+          onPointerDown={(event) => {
+            if (status !== "idle" || !canAnswer || hasDraft) {
+              return;
+            }
+            event.currentTarget.setPointerCapture(event.pointerId);
+            onStartRecording();
+          }}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            if (status === "recording") {
+              onStopRecording();
+            }
+          }}
+          onPointerCancel={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            if (status === "recording") {
+              onStopRecording();
+            }
+          }}
+          type="button"
+        >
+          <Mic size={34} />
+        </button>
+        <p className="mt-3 max-w-64 text-center text-xs font-bold leading-5 text-black/60">
+          Maintiens le bouton pendant toute ta reponse. Relache quand tu as
+          fini de parler.
+        </p>
       </div>
 
       <form className="mt-4 flex gap-2" onSubmit={onSubmitText}>
         <input
           value={textInput}
           onChange={(event) => setTextInput(event.target.value)}
-          placeholder="Ou tester en texte..."
+          placeholder={
+            canAnswer ? "Ou tester en texte..." : "Session limitee a 5 reponses"
+          }
+          disabled={!canAnswer || status !== "idle" || hasDraft}
           className="h-12 min-w-0 flex-1 rounded-md border border-black/10 bg-white px-3 text-sm font-semibold outline-none ring-forest focus:ring-4"
         />
         <button
           aria-label="Envoyer"
           className="grid h-12 w-12 place-items-center rounded-md bg-forest text-white disabled:opacity-45"
-          disabled={status !== "idle"}
+          disabled={status !== "idle" || !canAnswer || hasDraft}
           type="submit"
         >
           <Send size={18} />
@@ -626,16 +840,60 @@ function SimulationScreen({
 
       {error && <p className="mt-3 text-sm font-bold text-tomato">{error}</p>}
 
+      {sellerDraft && (
+        <div className="mt-3 rounded-lg border border-forest/25 bg-white p-4">
+          <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
+            Verifie ta reponse avant envoi
+          </p>
+          <textarea
+            value={sellerDraft}
+            onChange={(event) => setSellerDraft(event.target.value)}
+            className="mt-3 min-h-24 w-full rounded-md border border-black/10 bg-paper p-3 text-sm font-bold leading-5 text-ink outline-none ring-forest focus:ring-4"
+          />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              className="h-11 rounded-md border border-black/15 bg-white px-3 text-sm font-black text-ink"
+              onClick={onEditSellerDraft}
+              type="button"
+            >
+              Modifier
+            </button>
+            <button
+              className="h-11 rounded-md bg-forest px-3 text-sm font-black text-white"
+              onClick={onValidateSellerDraft}
+              type="button"
+            >
+              Valider ma reponse
+            </button>
+          </div>
+        </div>
+      )}
+
+      {lastSellerText && !sellerDraft && (
+        <div className="mt-3 rounded-md border border-black/10 bg-white p-3">
+          <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
+            Phrase vendeur captee
+          </p>
+          <p className="mt-2 text-sm font-bold leading-5 text-ink">
+            {lastSellerText}
+          </p>
+        </div>
+      )}
+
       <Transcript turns={session.transcript} />
 
       <button
         className="mt-auto flex h-12 w-full items-center justify-center gap-2 rounded-md border border-black/15 bg-white px-4 text-sm font-black disabled:opacity-50"
-        disabled={status !== "idle" || session.transcript.length < 4}
+        disabled={status !== "idle" || sellerTurnsCount < MAX_SELLER_TURNS}
         onClick={onFinish}
         type="button"
       >
         <BarChart3 size={18} />
-        Terminer et analyser
+        {canAnswer
+          ? `Encore ${remainingSellerTurns} reponse${
+              remainingSellerTurns > 1 ? "s" : ""
+            }`
+          : "Analyser mes 5 reponses"}
       </button>
     </section>
   );
@@ -677,9 +935,9 @@ function ReportScreen({
 }) {
   const skills = [
     ["Decouverte", report.score.decouverte, 15],
-    ["Carte & credit Cpay", report.score.financement, 25],
+    ["Mensualites & Cpay", report.score.financement, 25],
     ["GLD (garantie)", report.score.garantieExtension, 25],
-    ["Estaly (esthetique)", report.score.assuranceEsthetisme, 25],
+    ["Estaly / pertinence", report.score.assuranceEsthetisme, 25],
     ["Objections services", report.score.objections, 5],
     ["Closing", report.score.closing, 5]
   ] as const;
@@ -727,7 +985,7 @@ function ReportScreen({
       />
       <ReportList
         icon={<Sparkles size={18} />}
-        title="Priorites"
+        title="Priorites - bons reflexes"
         items={report.score.priorities.slice(0, 3)}
       />
 
@@ -745,7 +1003,10 @@ function ReportScreen({
           <p className="mt-1 text-sm font-bold">
             Vous: <q>{moment.sellerQuote}</q>
           </p>
-          <p className="mt-3 text-sm leading-5 text-black/70">
+          <p className="mt-3 text-xs font-black uppercase tracking-[0.08em] text-forest">
+            Ce qu'il fallait capter / comment adapter
+          </p>
+          <p className="mt-2 text-sm leading-5 text-black/70">
             {moment.betterAnswer}
           </p>
           <button
@@ -760,7 +1021,11 @@ function ReportScreen({
       ))}
 
       <div className="rounded-lg border border-black/10 bg-white p-4">
-        <h2 className="text-base font-black">Reactivation</h2>
+        <h2 className="text-base font-black">A retravailler plus tard</h2>
+        <p className="mt-2 text-sm leading-5 text-black/65">
+          Ces rappels servent a ancrer les reflexes. Relis la consigne le jour
+          indique, puis redis la phrase sans modele avant de refaire une session.
+        </p>
         <div className="mt-3 space-y-3">
           {report.spacedPlan.map((item) => (
             <div key={`${item.when}-${item.task}`} className="flex gap-3">
@@ -816,34 +1081,6 @@ function ReportList({
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-function SegmentedControl({
-  value,
-  onChange,
-  options
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<[string, string]>;
-}) {
-  return (
-    <div className="grid grid-cols-4 rounded-lg border border-black/10 bg-white p-1">
-      {options.map(([optionValue, label]) => (
-        <button
-          key={optionValue}
-          className={cx(
-            "h-10 rounded-md px-2 text-xs font-black",
-            value === optionValue ? "bg-ink text-white" : "text-black/60"
-          )}
-          onClick={() => onChange(optionValue)}
-          type="button"
-        >
-          {label}
-        </button>
-      ))}
     </div>
   );
 }

@@ -12,21 +12,21 @@ export const formations: FormationModule[] = [
     title: "Carte BUT Cpay & credit",
     tagline: "Le bon usage, transparent et sans promesse interdite.",
     color: "bg-cobalt",
-    reading: "4 min"
+    reading: "3 min + mini-test"
   },
   {
     slug: "estaly",
     title: "Protection esthetique Estaly",
     tagline: "Taches, rayures, brulures : on dit protection, jamais assurance.",
     color: "bg-tomato",
-    reading: "5 min"
+    reading: "3 min + mini-test"
   },
   {
     slug: "gld",
     title: "GLD - Garantie Longue Duree",
     tagline: "Panne, mecanisme, transport : la tranquillite apres la garantie legale.",
     color: "bg-forest",
-    reading: "4 min"
+    reading: "3 min + mini-test"
   }
 ];
 

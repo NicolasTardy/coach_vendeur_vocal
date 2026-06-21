@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import Link from "next/link";
@@ -42,20 +43,20 @@ export default function SignupPage() {
   return (
     <main className="noise min-h-svh p-0 text-ink md:py-6">
       <div className="phone-shell bg-paper">
-        <section className="space-y-5 px-5 py-8">
-          <header>
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-forest">
+        <section className="space-y-5 px-5 py-6">
+          <header className="hero-panel rounded-lg p-5 text-white">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-citron">
               Etape 1
             </p>
-            <h1 className="mt-1 text-2xl font-black leading-tight">
+            <h1 className="mt-2 text-2xl font-black leading-tight">
               Choisis un pseudo et un mot de passe
             </h1>
-            <p className="mt-2 text-sm leading-5 text-black/65">
+            <p className="mt-3 text-sm leading-5 text-white/72">
               Aucun email demande. Pseudo unique sur l'app.
             </p>
           </header>
 
-          <form className="space-y-4" onSubmit={onSubmit}>
+          <form className="app-card space-y-4 rounded-lg p-5" onSubmit={onSubmit}>
             <Field
               label="Pseudo"
               hint="2-24 caracteres, lettres, chiffres, - ou _"
@@ -88,7 +89,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={busy}
-              className="flex h-14 w-full items-center justify-center rounded-md bg-tomato px-5 text-base font-black text-white shadow-soft disabled:opacity-60"
+              className="action-primary px-5 text-base disabled:opacity-60"
             >
               {busy ? "Creation..." : "Creer mon profil"}
             </button>

@@ -106,12 +106,11 @@ type Props = {
 function ReportDocument({ report, scenarioTitle, pseudo, createdAt }: Props) {
   const skills: Array<[string, number, number]> = [
     ["Decouverte", report.score.decouverte, 15],
-    ["Credit / Carte", report.score.financement, 25],
+    ["Mensualites / Cpay", report.score.financement, 25],
     ["GLD (garantie)", report.score.garantieExtension, 25],
-    ["Estaly", report.score.assuranceEsthetisme, 25],
-    ["Objections", report.score.objections, 15],
-    ["Closing", report.score.closing, 10],
-    ["Accueil & relation", report.score.accueil + report.score.relationnel, 20]
+    ["Estaly / pertinence", report.score.assuranceEsthetisme, 25],
+    ["Objections services", report.score.objections, 5],
+    ["Closing services", report.score.closing, 5]
   ];
 
   const dateFr = new Date(createdAt).toLocaleString("fr-FR");
@@ -180,7 +179,7 @@ function ReportDocument({ report, scenarioTitle, pseudo, createdAt }: Props) {
         createElement(
           View,
           { style: styles.section },
-          createElement(Text, { style: styles.h2 }, "Priorites"),
+          createElement(Text, { style: styles.h2 }, "Priorites - bons reflexes"),
           ...report.score.priorities
             .slice(0, 3)
             .map((item, index) =>
@@ -226,7 +225,7 @@ function ReportDocument({ report, scenarioTitle, pseudo, createdAt }: Props) {
         createElement(
           View,
           { style: styles.section },
-          createElement(Text, { style: styles.h2 }, "Reactivation"),
+          createElement(Text, { style: styles.h2 }, "A retravailler plus tard"),
           ...report.spacedPlan.map((item, index) =>
             createElement(
               Text,

@@ -29,7 +29,7 @@ export class OpenAISpeechToTextService implements SpeechToTextService {
         maxOutputTokens: 300
       });
 
-      return extractGeminiText(response);
+      return cleanTranscription(extractGeminiText(response));
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -59,4 +59,12 @@ export class OpenAISpeechToTextService implements SpeechToTextService {
 
     return response.text();
   }
+}
+
+function cleanTranscription(text: string) {
+  return text
+    .replace(/^["“”]+|["“”]+$/g, "")
+    .replace(/\s+but\s+["“”].*$/i, "")
+    .replace(/\s+is standard\.?$/i, "")
+    .trim();
 }

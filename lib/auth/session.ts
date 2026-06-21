@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 export type SessionData = {
   userId?: string;
   pseudo?: string;
+  clientVoiceUnlocked?: boolean;
 };
 
 const password =

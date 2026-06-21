@@ -8,7 +8,8 @@ import { OpenAITextToSpeechService } from "@/lib/services/text-to-speech-service
 import type { TrainingSession } from "@/lib/types";
 
 const createSessionSchema = z.object({
-  scenarioId: z.string().trim().min(1)
+  scenarioId: z.string().trim().min(1),
+  includeAudio: z.boolean().optional()
 });
 
 export async function POST(request: Request) {
@@ -30,15 +31,19 @@ export async function POST(request: Request) {
   if (!scenario) {
     return NextResponse.json({ error: "Scenario introuvable." }, { status: 404 });
   }
+  const shouldGenerateAudio =
+    parsed.data.includeAudio === true && auth.clientVoiceUnlocked === true;
 
-  const greetingText = `Bonjour. Je regarde un peu. ${scenario.visibleNeed}, mais je veux etre sur de faire le bon choix.`;
+  const greetingText = scenario.openingLine;
 
-  const tts = new OpenAITextToSpeechService();
   let greetingAudioUrl: string | null = null;
-  try {
-    greetingAudioUrl = await tts.synthesize(greetingText);
-  } catch (error) {
-    console.error("Greeting TTS synthesis failed", error);
+  if (shouldGenerateAudio) {
+    const tts = new OpenAITextToSpeechService();
+    try {
+      greetingAudioUrl = await tts.synthesize(greetingText);
+    } catch (error) {
+      console.error("Greeting TTS synthesis failed", error);
+    }
   }
 
   const turnId = crypto.randomUUID();

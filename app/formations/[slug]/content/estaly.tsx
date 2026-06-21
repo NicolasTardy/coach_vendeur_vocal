@@ -1,8 +1,45 @@
+/* eslint-disable react/no-unescaped-entities */
+
 import { Bullets, Quote, Section } from "./section";
 
 export function EstalyContent() {
   return (
     <>
+      <Section title="Micro-learning 3 minutes" accent="tomato">
+        <Bullets
+          items={[
+            "Objectif: proposer Estaly uniquement quand le risque esthetique est credible.",
+            "Attention: retiens 4 risques: tache, rayure, choc, brulure.",
+            "Rappel actif: sans lire, donne un exemple adapte a un canape ou une table."
+          ]}
+        />
+      </Section>
+
+      <Section title="Dans une vente en 5 tours" accent="tomato">
+        <ol className="space-y-2">
+          <li>
+            <strong>Tour 1.</strong> Faire parler l'usage: enfants, repas,
+            invites, matiere, produit visible.
+          </li>
+          <li>
+            <strong>Tour 2.</strong> Reformuler le risque: "Donc le point, c'est
+            de le garder beau dans la vraie vie."
+          </li>
+          <li>
+            <strong>Tour 3.</strong> Proposer Estaly avec le mot protection, pas
+            assurance.
+          </li>
+          <li>
+            <strong>Tour 4.</strong> Donner un exemple couvert: tache, rayure,
+            choc, brulure, accroc.
+          </li>
+          <li>
+            <strong>Tour 5.</strong> Micro-closing: "Je vous chiffre avec la
+            protection pour comparer ?"
+          </li>
+        </ol>
+      </Section>
+
       <Section title="En une phrase" accent="tomato">
         <p>
           Pendant <strong>12 ou 24 mois</strong>, si le produit du client prend
@@ -115,6 +152,16 @@ export function EstalyContent() {
           Toujours proposer : le pire, c'est de ne rien dire. On ne peut pas
           rajouter Estaly apres l'achat.
         </p>
+      </Section>
+
+      <Section title="Mini-test avant simulation" accent="tomato">
+        <Bullets
+          items={[
+            "Choisis: Estaly ou pas Estaly sur TV, canape, table, lave-linge.",
+            "Redis sans lire une phrase qui relie Estaly a un risque du quotidien.",
+            "Reponds en 10 secondes a: 'On fera attention'."
+          ]}
+        />
       </Section>
     </>
   );

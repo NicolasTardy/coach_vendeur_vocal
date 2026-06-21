@@ -80,7 +80,7 @@ export class BrowserMediaRecorderProvider implements VoiceInputProvider {
         this.chunks.push(event.data);
       }
     };
-    this.recorder.start();
+    this.recorder.start(250);
   }
 
   async stop() {
@@ -99,7 +99,7 @@ export class BrowserMediaRecorderProvider implements VoiceInputProvider {
           text: ""
         });
       };
-      recorder.stop();
+      window.setTimeout(() => recorder.stop(), 750);
     });
   }
 }
@@ -159,7 +159,7 @@ export class BrowserSpeechRecognitionProvider implements VoiceInputProvider {
 
       recognition.onend = finish;
       recognition.onerror = finish;
-      this.timeoutId = window.setTimeout(finish, 1200);
+      this.timeoutId = window.setTimeout(finish, 2200);
 
       try {
         recognition.stop();
