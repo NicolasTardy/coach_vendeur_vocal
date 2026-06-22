@@ -45,5 +45,24 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
+  if (isUnusableTranscription(sellerText)) {
+    return NextResponse.json(
+      {
+        error:
+          "Transcription instable. Reessaie en parlant plus court, ou utilise la saisie texte.",
+        sellerText: sellerText.slice(0, 260)
+      },
+      { status: 422 }
+    );
+  }
+
   return NextResponse.json({ sellerText });
+}
+
+function isUnusableTranscription(text: string) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length > 90) return true;
+
+  const unique = new Set(words.map((word) => word.toLowerCase()));
+  return words.length > 35 && unique.size / words.length < 0.45;
 }

@@ -114,9 +114,9 @@ export default function Home() {
       return;
     }
 
-    const provider = canUseSpeechRecognition()
-      ? new BrowserSpeechRecognitionProvider()
-      : new BrowserMediaRecorderProvider();
+    const provider = canUseMediaRecorder()
+      ? new BrowserMediaRecorderProvider()
+      : new BrowserSpeechRecognitionProvider();
     recorderRef.current = provider;
 
     try {
@@ -857,7 +857,7 @@ function SimulationScreen({
       )}
 
       {lastSellerText && !sellerDraft && (
-        <div className="mt-3 rounded-md border border-black/10 bg-white p-3">
+        <div className="mt-3 max-h-44 overflow-y-auto rounded-md border border-black/10 bg-white p-3">
           <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
             Phrase vendeur captee
           </p>
