@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Send,
   Sparkles,
+  Square,
   Trophy
 } from "lucide-react";
 import Link from "next/link";
@@ -777,46 +778,30 @@ function SimulationScreen({
         )}
       </div>
 
-      <div className="mt-4 flex flex-col items-center">
-        <button
-          aria-label="Maintenir pour parler au client"
-          className={cx(
-            "grid size-24 touch-none place-items-center rounded-full text-white shadow-soft disabled:opacity-55",
-            status === "recording" ? "bg-ink scale-105" : "bg-tomato"
-          )}
-          disabled={
-            (status !== "idle" && status !== "recording") || !canAnswer || hasDraft
-          }
-          onPointerDown={(event) => {
-            if (status !== "idle" || !canAnswer || hasDraft) {
-              return;
-            }
-            event.currentTarget.setPointerCapture(event.pointerId);
-            onStartRecording();
-          }}
-          onPointerUp={(event) => {
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId);
-            }
-            if (status === "recording") {
-              onStopRecording();
-            }
-          }}
-          onPointerCancel={(event) => {
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId);
-            }
-            if (status === "recording") {
-              onStopRecording();
-            }
-          }}
-          type="button"
-        >
-          <Mic size={34} />
-        </button>
-        <p className="mt-3 max-w-64 text-center text-xs font-bold leading-5 text-black/60">
-          Maintiens le bouton pendant toute ta reponse. Relache quand tu as
-          fini de parler.
+      <div className="mt-4 rounded-lg border border-black/10 bg-white p-3">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            className="flex h-14 items-center justify-center gap-2 rounded-md bg-tomato px-3 text-sm font-black text-white shadow-soft disabled:opacity-45"
+            disabled={status !== "idle" || !canAnswer || hasDraft}
+            onClick={onStartRecording}
+            type="button"
+          >
+            <Mic size={20} />
+            Parler
+          </button>
+          <button
+            className="flex h-14 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-black text-white shadow-soft disabled:opacity-45"
+            disabled={status !== "recording"}
+            onClick={onStopRecording}
+            type="button"
+          >
+            <Square size={17} />
+            Stop
+          </button>
+        </div>
+        <p className="mt-3 text-center text-xs font-bold leading-5 text-black/60">
+          Appuie sur Parler, donne ta reponse complete, puis appuie sur Stop.
+          Tu pourras verifier et modifier la phrase captee avant de l&apos;envoyer.
         </p>
       </div>
 
