@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getTrainingSession } from "@/lib/db/sessions-store";
+import { cleanSpeechText } from "@/lib/speech-cleanup";
 import { OpenAISpeechToTextService } from "@/lib/services/speech-to-text-service";
 
 type Params = {
@@ -21,7 +22,7 @@ export async function POST(request: Request, { params }: Params) {
 
   const formData = await request.formData();
   const audio = formData.get("audio");
-  const textInput = String(formData.get("text") ?? "").trim();
+  const textInput = cleanSpeechText(String(formData.get("text") ?? ""));
 
   if (textInput) {
     return NextResponse.json({ sellerText: textInput });
@@ -35,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const stt = new OpenAISpeechToTextService();
-  const sellerText = (await stt.transcribe(audio)).trim();
+  const sellerText = cleanSpeechText(await stt.transcribe(audio));
 
   if (!sellerText) {
     return NextResponse.json(

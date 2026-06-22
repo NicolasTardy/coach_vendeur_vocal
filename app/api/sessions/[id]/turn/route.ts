@@ -5,6 +5,7 @@ import { getTrainingSession, updateTrainingSession } from "@/lib/db/sessions-sto
 import { ClientPersonaEngine } from "@/lib/services/conversation-engine";
 import { OpenAISpeechToTextService } from "@/lib/services/speech-to-text-service";
 import { OpenAITextToSpeechService } from "@/lib/services/text-to-speech-service";
+import { cleanSpeechText } from "@/lib/speech-cleanup";
 import type { TranscriptTurn } from "@/lib/types";
 
 type Params = {
@@ -46,7 +47,7 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const formData = await request.formData();
-  const textInput = String(formData.get("text") ?? "").trim();
+  const textInput = cleanSpeechText(String(formData.get("text") ?? ""));
   const audio = formData.get("audio");
   const shouldGenerateAudio =
     String(formData.get("includeAudio") ?? "") === "true" &&
@@ -55,7 +56,7 @@ export async function POST(request: Request, { params }: Params) {
   let sellerText = textInput;
   if (!sellerText && audio instanceof Blob) {
     const stt = new OpenAISpeechToTextService();
-    sellerText = (await stt.transcribe(audio)).trim();
+    sellerText = cleanSpeechText(await stt.transcribe(audio));
   }
 
   if (!sellerText) {

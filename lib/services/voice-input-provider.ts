@@ -1,3 +1,5 @@
+import { cleanSpeechText } from "@/lib/speech-cleanup";
+
 export type VoiceInputResult = {
   audio: Blob | null;
   text: string;
@@ -14,6 +16,7 @@ type SpeechRecognitionResultListLike = {
     [index: number]: {
       transcript: string;
     };
+    isFinal?: boolean;
   };
 };
 
@@ -123,17 +126,25 @@ export class BrowserSpeechRecognitionProvider implements VoiceInputProvider {
     this.recognition.continuous = true;
     this.recognition.interimResults = true;
     this.recognition.onresult = (event) => {
-      const parts: string[] = [];
+      const finalParts: string[] = [];
+      let lastInterim = "";
 
       for (let index = 0; index < event.results.length; index += 1) {
-        const text = event.results[index]?.[0]?.transcript;
+        const result = event.results[index];
+        const text = result?.[0]?.transcript;
 
-        if (text) {
-          parts.push(text);
+        if (!text) {
+          continue;
+        }
+
+        if (result.isFinal) {
+          finalParts.push(text);
+        } else {
+          lastInterim = text;
         }
       }
 
-      this.transcript = parts.join(" ").trim();
+      this.transcript = cleanSpeechText([...finalParts, lastInterim].join(" "));
     };
     this.recognition.onerror = () => undefined;
     this.recognition.start();
@@ -154,7 +165,7 @@ export class BrowserSpeechRecognitionProvider implements VoiceInputProvider {
         }
 
         this.recognition = null;
-        resolve({ audio: null, text: this.transcript });
+        resolve({ audio: null, text: cleanSpeechText(this.transcript) });
       };
 
       recognition.onend = finish;

@@ -691,7 +691,7 @@ function SimulationScreen({
           : "Pret";
 
   return (
-    <section className="flex min-h-[calc(100svh-61px)] flex-col px-4 pb-5 pt-4 md:min-h-[819px]">
+    <section className="flex min-h-[calc(100svh-61px)] min-w-0 flex-col overflow-x-hidden px-4 pb-5 pt-4 md:min-h-[819px]">
       <div className="rounded-lg border border-black/10 bg-white p-4">
         <div className="flex items-center gap-4">
           <div className="grid size-16 shrink-0 place-items-center rounded-md bg-citron text-2xl font-black text-ink">
@@ -861,7 +861,7 @@ function SimulationScreen({
           <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
             Phrase vendeur captee
           </p>
-          <p className="mt-2 text-sm font-bold leading-5 text-ink">
+          <p className="mt-2 break-words text-sm font-bold leading-5 text-ink">
             {lastSellerText}
           </p>
         </div>
@@ -888,13 +888,13 @@ function SimulationScreen({
 
 function Transcript({ turns }: { turns: TranscriptTurn[] }) {
   return (
-    <div className="my-5 max-h-52 overflow-y-auto rounded-lg border border-black/10 bg-white/70 p-3">
+    <div className="my-5 max-h-52 min-w-0 overflow-y-auto overflow-x-hidden rounded-lg border border-black/10 bg-white/70 p-3">
       <div className="space-y-3">
         {turns.map((turn) => (
           <p
             key={turn.id}
             className={cx(
-              "text-sm leading-5",
+              "break-words text-sm leading-5",
               turn.speaker === "seller" ? "text-ink" : "text-black/62"
             )}
           >
