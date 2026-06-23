@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
-  BrowserMediaRecorderProvider,
+  BrowserHybridVoiceInputProvider,
   BrowserSpeechRecognitionProvider,
   canUseMediaRecorder,
   canUseSpeechRecognition,
@@ -33,6 +33,13 @@ type Step = "setup" | "simulation" | "report";
 type Status = "idle" | "recording" | "client" | "analysis";
 const MAX_SELLER_TURNS = 5;
 const MAX_CLIENT_TURNS = 5;
+
+function getAudioFilename(audio: Blob) {
+  if (audio.type.includes("mp4")) return "seller.m4a";
+  if (audio.type.includes("ogg")) return "seller.ogg";
+  if (audio.type.includes("wav")) return "seller.wav";
+  return "seller.webm";
+}
 
 export default function Home() {
   const router = useRouter();
@@ -115,7 +122,7 @@ export default function Home() {
     }
 
     const provider = canUseMediaRecorder()
-      ? new BrowserMediaRecorderProvider()
+      ? new BrowserHybridVoiceInputProvider()
       : new BrowserSpeechRecognitionProvider();
     recorderRef.current = provider;
 
@@ -164,7 +171,7 @@ export default function Home() {
 
     const formData = new FormData();
     if (audio) {
-      formData.append("audio", audio, "seller.webm");
+      formData.append("audio", audio, getAudioFilename(audio));
     }
     if (text) {
       formData.append("text", text);
@@ -222,7 +229,7 @@ export default function Home() {
 
     const formData = new FormData();
     if (audio) {
-      formData.append("audio", audio, "seller.webm");
+      formData.append("audio", audio, getAudioFilename(audio));
     }
     if (text) {
       formData.append("text", text);

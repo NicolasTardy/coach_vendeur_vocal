@@ -107,6 +107,34 @@ export class BrowserMediaRecorderProvider implements VoiceInputProvider {
   }
 }
 
+export class BrowserHybridVoiceInputProvider implements VoiceInputProvider {
+  private mediaRecorder = new BrowserMediaRecorderProvider();
+  private speechRecognition: BrowserSpeechRecognitionProvider | null = null;
+
+  async start() {
+    await this.mediaRecorder.start();
+
+    if (canUseSpeechRecognition()) {
+      this.speechRecognition = new BrowserSpeechRecognitionProvider();
+      await this.speechRecognition.start().catch(() => {
+        this.speechRecognition = null;
+      });
+    }
+  }
+
+  async stop() {
+    const [audioResult, speechResult] = await Promise.all([
+      this.mediaRecorder.stop(),
+      this.speechRecognition?.stop() ?? Promise.resolve({ audio: null, text: "" })
+    ]);
+
+    return {
+      audio: audioResult.audio,
+      text: speechResult.text
+    };
+  }
+}
+
 export class BrowserSpeechRecognitionProvider implements VoiceInputProvider {
   private recognition: SpeechRecognitionLike | null = null;
   private transcript = "";

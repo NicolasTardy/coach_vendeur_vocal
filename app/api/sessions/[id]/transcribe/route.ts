@@ -24,11 +24,11 @@ export async function POST(request: Request, { params }: Params) {
   const audio = formData.get("audio");
   const textInput = cleanSpeechText(String(formData.get("text") ?? ""));
 
-  if (textInput) {
-    return NextResponse.json({ sellerText: textInput });
-  }
-
   if (!(audio instanceof Blob)) {
+    if (textInput) {
+      return NextResponse.json({ sellerText: textInput });
+    }
+
     return NextResponse.json(
       { error: "Aucune parole vendeur detectee." },
       { status: 400 }
@@ -36,11 +36,21 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const stt = new OpenAISpeechToTextService();
-  const sellerText = cleanSpeechText(await stt.transcribe(audio));
+  let sellerText = "";
+
+  try {
+    sellerText = cleanSpeechText(await stt.transcribe(audio));
+  } catch (error) {
+    console.error("transcription failed", error);
+    sellerText = textInput;
+  }
 
   if (!sellerText) {
     return NextResponse.json(
-      { error: "Aucune parole vendeur detectee." },
+      {
+        error:
+          "La transcription audio a echoue. Reessaie ou utilise la saisie texte."
+      },
       { status: 400 }
     );
   }

@@ -56,7 +56,12 @@ export async function POST(request: Request, { params }: Params) {
   let sellerText = textInput;
   if (!sellerText && audio instanceof Blob) {
     const stt = new OpenAISpeechToTextService();
-    sellerText = cleanSpeechText(await stt.transcribe(audio));
+    try {
+      sellerText = cleanSpeechText(await stt.transcribe(audio));
+    } catch (error) {
+      console.error("turn transcription failed", error);
+      sellerText = "";
+    }
   }
 
   if (!sellerText) {
