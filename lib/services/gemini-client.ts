@@ -37,6 +37,19 @@ type GeminiGenerateResponse = {
 
 const geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models";
 
+function serializePart(part: GeminiPart) {
+  if ("inlineData" in part) {
+    return {
+      inline_data: {
+        mime_type: part.inlineData.mimeType,
+        data: part.inlineData.data
+      }
+    };
+  }
+
+  return part;
+}
+
 export async function generateGeminiContent(args: GeminiGenerateArgs) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("Missing GEMINI_API_KEY");
@@ -85,7 +98,7 @@ export async function generateGeminiContent(args: GeminiGenerateArgs) {
         contents: [
           {
             role: "user",
-            parts: args.parts
+            parts: args.parts.map(serializePart)
           }
         ],
         ...(Object.keys(generationConfig).length ? { generationConfig } : {})
