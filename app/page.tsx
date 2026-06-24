@@ -106,9 +106,6 @@ export default function Home() {
     setReport(null);
     setLastSellerText("");
     setStep("simulation");
-    if (clientVoiceEnabled) {
-      playClientVoice(data.session.transcript.at(-1));
-    }
   }
 
   async function startRecording() {

@@ -11,12 +11,14 @@ export type TextToSpeechService = {
 
 export class OpenAITextToSpeechService implements TextToSpeechService {
   async synthesize(text: string) {
+    const spokenText = prepareClientSpeech(text);
+
     if (aiConfig.audioProvider === "gemini" && process.env.GEMINI_API_KEY) {
       const data = await generateGeminiContent({
         model: aiConfig.geminiTtsModel,
         parts: [
           {
-            text: `Dis d'une voix francaise naturelle de client en magasin, ton realiste et conversationnel: ${text}`
+            text: `Lis uniquement cette replique client en francais naturel, ton calme et conversationnel, sans ajouter de commentaire: ${spokenText}`
           }
         ],
         responseModalities: ["AUDIO"],
@@ -48,7 +50,7 @@ export class OpenAITextToSpeechService implements TextToSpeechService {
       body: JSON.stringify({
         model: aiConfig.ttsModel,
         voice: "coral",
-        input: text,
+        input: spokenText,
         instructions:
           "Voix naturelle francaise, client de magasin, ton realiste et conversationnel.",
         response_format: "mp3"
@@ -62,4 +64,12 @@ export class OpenAITextToSpeechService implements TextToSpeechService {
     const buffer = Buffer.from(await response.arrayBuffer());
     return `data:audio/mpeg;base64,${buffer.toString("base64")}`;
   }
+}
+
+function prepareClientSpeech(text: string) {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/([.!?])\s+/g, "$1 ")
+    .trim()
+    .slice(0, 420);
 }
