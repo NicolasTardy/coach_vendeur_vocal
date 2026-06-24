@@ -1,3 +1,5 @@
+import { getGeminiApiKey } from "@/lib/env";
+
 type GeminiTextPart = {
   text: string;
 };
@@ -51,7 +53,9 @@ function serializePart(part: GeminiPart) {
 }
 
 export async function generateGeminiContent(args: GeminiGenerateArgs) {
-  if (!process.env.GEMINI_API_KEY) {
+  const apiKey = getGeminiApiKey();
+
+  if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY");
   }
 
@@ -84,7 +88,7 @@ export async function generateGeminiContent(args: GeminiGenerateArgs) {
     {
       method: "POST",
       headers: {
-        "x-goog-api-key": process.env.GEMINI_API_KEY,
+        "x-goog-api-key": apiKey,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({

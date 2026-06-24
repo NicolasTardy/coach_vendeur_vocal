@@ -1,3 +1,5 @@
+import { getGeminiApiKey } from "@/lib/env";
+
 export const aiConfig = {
   textProvider:
     process.env.AI_TEXT_PROVIDER ?? process.env.AI_PROVIDER ?? "deepseek",
@@ -17,7 +19,7 @@ export const aiConfig = {
   geminiSttModel: process.env.GEMINI_STT_MODEL ?? "gemini-3.5-flash",
   geminiTtsModel:
     process.env.GEMINI_TTS_MODEL ?? "gemini-3.1-flash-tts-preview",
-  hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+  hasGeminiKey: Boolean(getGeminiApiKey()),
   port: process.env.PORT ?? "3008",
   pm2Name: process.env.PM2_NAME ?? "simuvente-ia"
 };

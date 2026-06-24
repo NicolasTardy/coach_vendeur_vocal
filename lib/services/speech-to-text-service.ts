@@ -1,4 +1,5 @@
 import { aiConfig } from "@/lib/config";
+import { getGeminiApiKey } from "@/lib/env";
 import {
   extractGeminiText,
   generateGeminiContent
@@ -10,7 +11,9 @@ export type SpeechToTextService = {
 
 export class OpenAISpeechToTextService implements SpeechToTextService {
   async transcribe(audio: Blob) {
-    if (aiConfig.audioProvider === "gemini" && process.env.GEMINI_API_KEY) {
+    const geminiApiKey = getGeminiApiKey();
+
+    if (aiConfig.audioProvider === "gemini" && geminiApiKey) {
       try {
         const data = Buffer.from(await audio.arrayBuffer()).toString("base64");
         const mimeType = normalizeAudioMimeType(audio.type);
@@ -43,7 +46,7 @@ export class OpenAISpeechToTextService implements SpeechToTextService {
     if (!process.env.OPENAI_API_KEY) {
       console.error("STT unavailable: no working Gemini STT and no OPENAI_API_KEY", {
         audioProvider: aiConfig.audioProvider,
-        hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+        hasGeminiKey: Boolean(geminiApiKey),
         audioType: audio.type || "unknown",
         audioSize: audio.size
       });
