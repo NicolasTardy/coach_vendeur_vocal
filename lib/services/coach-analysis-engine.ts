@@ -1,4 +1,5 @@
 import { aiConfig } from "@/lib/config";
+import { getGeminiApiKey } from "@/lib/env";
 import { buildCoachSystemPrompt } from "@/lib/prompts";
 import type { FinalReport, Scenario, TranscriptTurn } from "@/lib/types";
 import { buildFallbackReport } from "@/lib/services/report-generator";
@@ -60,13 +61,16 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
       }
     }
 
-    if (aiConfig.textProvider === "gemini" && process.env.GEMINI_API_KEY) {
+    if (aiConfig.textProvider === "gemini" && getGeminiApiKey()) {
       const data = await generateGeminiContent({
         model: aiConfig.geminiTextModel,
         systemInstruction: buildCoachSystemPrompt(scenario, transcript),
         parts: [{ text: "Analyse et retourne uniquement du JSON strict." }],
-        maxOutputTokens: 1600,
-        responseMimeType: "application/json"
+        maxOutputTokens: 4000,
+        responseMimeType: "application/json",
+        // Pas de budget de reflexion: tous les tokens vont au JSON du rapport,
+        // sinon la sortie est tronquee et on retombe sur le rapport generique.
+        thinkingBudget: 0
       });
 
       try {

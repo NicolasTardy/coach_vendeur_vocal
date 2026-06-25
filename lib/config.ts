@@ -2,7 +2,7 @@ import { getGeminiApiKey } from "@/lib/env";
 
 export const aiConfig = {
   textProvider:
-    process.env.AI_TEXT_PROVIDER ?? process.env.AI_PROVIDER ?? "deepseek",
+    process.env.AI_TEXT_PROVIDER ?? process.env.AI_PROVIDER ?? "gemini",
   audioProvider:
     process.env.AI_AUDIO_PROVIDER ?? process.env.AI_PROVIDER ?? "gemini",
   textModel: process.env.OPENAI_TEXT_MODEL ?? "gpt-5.4-mini",
