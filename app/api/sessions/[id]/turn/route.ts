@@ -120,7 +120,7 @@ export async function POST(request: Request, { params }: Params) {
   if (clientTurnsCount < MAX_CLIENT_TURNS) {
     const clientText = await engine.reply({
       scenario,
-      transcript: session.transcript,
+      transcript: [...session.transcript, sellerTurn],
       sellerText
     });
 

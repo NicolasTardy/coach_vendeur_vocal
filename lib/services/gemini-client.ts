@@ -21,6 +21,7 @@ type GeminiGenerateArgs = {
   responseMimeType?: "application/json" | "text/plain";
   responseModalities?: Array<"AUDIO" | "TEXT">;
   speechVoiceName?: string;
+  thinkingBudget?: number;
 };
 
 type GeminiGenerateResponse = {
@@ -80,6 +81,12 @@ export async function generateGeminiContent(args: GeminiGenerateArgs) {
           voiceName: args.speechVoiceName
         }
       }
+    };
+  }
+
+  if (typeof args.thinkingBudget === "number") {
+    generationConfig.thinkingConfig = {
+      thinkingBudget: args.thinkingBudget
     };
   }
 

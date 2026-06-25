@@ -41,6 +41,38 @@ function getAudioFilename(audio: Blob) {
   return "seller.webm";
 }
 
+// L'audio client n'est jamais persiste en base, donc les sessions renvoyees par
+// l'API arrivent sans audioUrl. On reattache les audios deja connus (ceux du
+// state precedent + le dernier tour client) pour que la voix reste la meme a la
+// reecoute, sans retomber sur la voix synthetique du navigateur.
+function withClientAudio(
+  session: TrainingSession,
+  previous: TrainingSession | null,
+  latestClientTurn?: TranscriptTurn
+): TrainingSession {
+  const audioById = new Map<string, string>();
+  previous?.transcript.forEach((turn) => {
+    if (turn.audioUrl) {
+      audioById.set(turn.id, turn.audioUrl);
+    }
+  });
+  if (latestClientTurn?.audioUrl) {
+    audioById.set(latestClientTurn.id, latestClientTurn.audioUrl);
+  }
+
+  if (audioById.size === 0) {
+    return session;
+  }
+
+  return {
+    ...session,
+    transcript: session.transcript.map((turn) => {
+      const audioUrl = audioById.get(turn.id);
+      return audioUrl ? { ...turn, audioUrl } : turn;
+    })
+  };
+}
+
 export default function Home() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("setup");
@@ -263,7 +295,7 @@ export default function Home() {
       clientTurn?: TranscriptTurn;
       maxTurnsReached?: boolean;
     };
-    setSession(data.session);
+    setSession((prev) => withClientAudio(data.session, prev, data.clientTurn));
     setLastSellerText(data.sellerText);
     if (clientVoiceEnabled && data.clientTurn) {
       playClientVoice(data.clientTurn ?? data.session.transcript.at(-1));
@@ -379,7 +411,7 @@ export default function Home() {
     }
 
     const data = (await response.json()) as { session: TrainingSession };
-    setSession(data.session);
+    setSession((prev) => withClientAudio(data.session, prev));
     setReport(null);
     setLastSellerText("");
     setStep("simulation");

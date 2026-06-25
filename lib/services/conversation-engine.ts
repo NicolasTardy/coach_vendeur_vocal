@@ -32,54 +32,22 @@ export class ClientPersonaEngine implements ConversationEngine {
     const prompt = buildClientSystemPrompt(scenario);
     const input = buildClientTurnInput(transcript, sellerText);
     const geminiApiKey = getGeminiApiKey();
+    // Gemini est le moteur texte principal. DeepSeek reste un repli optionnel.
+    const preferDeepSeek = aiConfig.textProvider === "deepseek";
 
-    if (process.env.DEEPSEEK_API_KEY) {
-      try {
-        const data = await createDeepSeekChatCompletion({
-          model: aiConfig.deepseekClientModel,
-          messages: [
-            {
-              role: "system",
-              content: prompt
-            },
-            {
-              role: "user",
-              content: input
-            }
-          ],
-          maxTokens: 170,
-          thinking: "disabled"
-        });
-
-        const text = extractDeepSeekText(data);
-        if (text) return text;
-      } catch (error) {
-        console.error("DeepSeek client reply failed; trying next provider", {
-          message: error instanceof Error ? error.message : String(error)
-        });
-      }
+    if (geminiApiKey && !preferDeepSeek) {
+      const text = await this.tryGeminiReply(prompt, input);
+      if (text) return text;
     }
 
-    if (geminiApiKey) {
-      try {
-        const data = await generateGeminiContent({
-          model: aiConfig.geminiTextModel,
-          systemInstruction: prompt,
-          parts: [
-            {
-              text: input
-            }
-          ],
-          maxOutputTokens: 170
-        });
+    if (process.env.DEEPSEEK_API_KEY) {
+      const text = await this.tryDeepSeekReply(prompt, input);
+      if (text) return text;
+    }
 
-        const text = extractGeminiText(data);
-        if (text) return text;
-      } catch (error) {
-        console.error("Gemini client reply failed; trying next provider", {
-          message: error instanceof Error ? error.message : String(error)
-        });
-      }
+    if (geminiApiKey && preferDeepSeek) {
+      const text = await this.tryGeminiReply(prompt, input);
+      if (text) return text;
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -112,6 +80,48 @@ export class ClientPersonaEngine implements ConversationEngine {
     const data = (await response.json()) as { output_text?: string };
     return data.output_text?.trim() || mockClientReply(scenario, transcript, sellerText);
   }
+
+  private async tryGeminiReply(prompt: string, input: string) {
+    try {
+      const data = await generateGeminiContent({
+        model: aiConfig.geminiTextModel,
+        systemInstruction: prompt,
+        parts: [{ text: input }],
+        maxOutputTokens: 220,
+        // Reponse client directe: pas de budget de reflexion, faible latence
+        // et tous les tokens disponibles pour la replique.
+        thinkingBudget: 0
+      });
+
+      return extractGeminiText(data);
+    } catch (error) {
+      console.error("Gemini client reply failed; trying next provider", {
+        message: error instanceof Error ? error.message : String(error)
+      });
+      return "";
+    }
+  }
+
+  private async tryDeepSeekReply(prompt: string, input: string) {
+    try {
+      const data = await createDeepSeekChatCompletion({
+        model: aiConfig.deepseekClientModel,
+        messages: [
+          { role: "system", content: prompt },
+          { role: "user", content: input }
+        ],
+        maxTokens: 220,
+        thinking: "disabled"
+      });
+
+      return extractDeepSeekText(data);
+    } catch (error) {
+      console.error("DeepSeek client reply failed; trying next provider", {
+        message: error instanceof Error ? error.message : String(error)
+      });
+      return "";
+    }
+  }
 }
 
 function buildClientTurnInput(transcript: TranscriptTurn[], sellerText: string) {
@@ -119,18 +129,23 @@ function buildClientTurnInput(transcript: TranscriptTurn[], sellerText: string) 
   const sellerTurns = transcript.filter((turn) => turn.speaker === "seller").length;
 
   return `
-CONTEXTE RECENT:
+CONVERSATION JUSQU'ICI (du plus ancien au plus recent):
 ${formatRecentTranscript(transcript)}
 
-DERNIERE PHRASE VENDEUR:
-SELLER: ${sellerText}
+DERNIERE PHRASE DU VENDEUR (a laquelle tu reponds maintenant):
+"${sellerText}"
 
 CONSIGNE DE TOUR:
-Tu dois repondre a cette derniere phrase precisement.
-Tour client a produire: ${clientTurns + 1}/5.
-Tours vendeur deja faits: ${sellerTurns}/5.
-Ne repete pas une question deja posee sauf si le vendeur n'a pas repondu.
-Fais evoluer ton hesitation selon ce que le vendeur vient de dire.
+- Reponds directement et precisement a cette derniere phrase du vendeur, en
+  restant coherent avec tout ce qui a deja ete dit plus haut.
+- Tour client a produire: ${clientTurns + 1}/5. Tours vendeur deja faits: ${sellerTurns}/5.
+- L'exercice du vendeur est de te proposer, quand c'est pertinent, un financement
+  (mensualites / carte Cpay) et/ou une protection (GLD, Estaly). Ne fais pas ce
+  travail a sa place: donne des indices realistes sur ton frein budget ou ton
+  risque, mais laisse-le proposer le service.
+- Ne repete pas une question deja posee sauf si le vendeur n'y a pas repondu.
+- Fais evoluer ton hesitation selon ce que le vendeur vient de dire.
+- Une seule replique de client, courte et naturelle, sans commentaire.
 `.trim();
 }
 
