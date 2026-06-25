@@ -21,7 +21,7 @@ export class OpenAISpeechToTextService implements SpeechToTextService {
           model: aiConfig.geminiSttModel,
           parts: [
             {
-              text: "Transcris exactement en francais la parole du vendeur. Retourne uniquement la transcription, sans commentaire."
+              text: "Transcris exactement et integralement en francais la parole du vendeur, du debut a la fin. Retourne uniquement la transcription complete, sans commentaire."
             },
             {
               inlineData: {
@@ -30,7 +30,10 @@ export class OpenAISpeechToTextService implements SpeechToTextService {
               }
             }
           ],
-          maxOutputTokens: 300
+          maxOutputTokens: 1024,
+          // Pas de budget de reflexion: sinon le modele de raisonnement
+          // consomme les tokens et ne transcrit que le debut de la phrase.
+          thinkingBudget: 0
         });
 
         return cleanTranscription(extractGeminiText(response));
