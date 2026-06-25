@@ -336,6 +336,28 @@ export default function Home() {
         await new Audio(turn.audioUrl).play();
         return;
       } catch {
+        // Fall through to on-demand synthesis.
+      }
+    }
+
+    // Pas d'audio attache (ex: phrase d'ouverture generee avant le
+    // deverrouillage de la voix): on synthetise a la demande cote serveur pour
+    // garder la vraie voix client au lieu de la voix robotique du navigateur.
+    if (clientVoiceEnabled && session) {
+      try {
+        const response = await fetch(`/api/sessions/${session.id}/speak`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: turn.text })
+        });
+        if (response.ok) {
+          const data = (await response.json()) as { audioUrl?: string };
+          if (data.audioUrl) {
+            await new Audio(data.audioUrl).play();
+            return;
+          }
+        }
+      } catch {
         // Fall through to browser speech synthesis.
       }
     }
