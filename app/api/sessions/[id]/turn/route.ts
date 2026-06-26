@@ -3,6 +3,8 @@ import { getScenario } from "@/lib/scenarios";
 import { getSession } from "@/lib/auth/session";
 import { getTrainingSession, updateTrainingSession } from "@/lib/db/sessions-store";
 import { ClientPersonaEngine } from "@/lib/services/conversation-engine";
+import { buildLiveHint } from "@/lib/services/live-hint";
+import { maxClientTurns, maxSellerTurns } from "@/lib/session-config";
 import { OpenAISpeechToTextService } from "@/lib/services/speech-to-text-service";
 import { OpenAITextToSpeechService } from "@/lib/services/text-to-speech-service";
 import { cleanSpeechText } from "@/lib/speech-cleanup";
@@ -12,8 +14,6 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
-const MAX_SELLER_TURNS = 5;
-const MAX_CLIENT_TURNS = 5;
 
 export async function POST(request: Request, { params }: Params) {
   const auth = await getSession();
@@ -32,6 +32,9 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Scenario introuvable." }, { status: 404 });
   }
 
+  const MAX_SELLER_TURNS = maxSellerTurns(session.mode);
+  const MAX_CLIENT_TURNS = maxClientTurns(session.mode);
+
   const sellerTurnsCount = session.transcript.filter(
     (turn) => turn.speaker === "seller"
   ).length;
@@ -41,7 +44,9 @@ export async function POST(request: Request, { params }: Params) {
 
   if (sellerTurnsCount >= MAX_SELLER_TURNS) {
     return NextResponse.json(
-      { error: "Limite de 5 prises de parole vendeur atteinte." },
+      {
+        error: `Limite de ${MAX_SELLER_TURNS} prises de parole vendeur atteinte.`
+      },
       { status: 409 }
     );
   }
@@ -121,7 +126,10 @@ export async function POST(request: Request, { params }: Params) {
     const clientText = await engine.reply({
       scenario,
       transcript: [...session.transcript, sellerTurn],
-      sellerText
+      sellerText,
+      difficulty: session.difficulty,
+      focusService: session.focusService,
+      maxTurns: MAX_CLIENT_TURNS
     });
 
     if (shouldGenerateAudio) {
@@ -151,10 +159,18 @@ export async function POST(request: Request, { params }: Params) {
     : [...session.transcript, sellerTurn];
   const persisted = updateTrainingSession(session);
 
+  // Indice per-tour a estompage (selon la difficulte/maitrise).
+  const liveHint = buildLiveHint(
+    scenario,
+    persisted.transcript,
+    session.difficulty ?? "neutre"
+  );
+
   return NextResponse.json({
     sellerText,
     clientTurn: responseClientTurn,
     session: persisted,
+    liveHint,
     maxTurnsReached:
       sellerTurnsCount + 1 >= MAX_SELLER_TURNS ||
       clientTurnsCount >= MAX_CLIENT_TURNS

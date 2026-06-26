@@ -9,13 +9,21 @@ import {
   extractGeminiText,
   generateGeminiContent
 } from "@/lib/services/gemini-client";
-import type { Scenario, TranscriptTurn } from "@/lib/types";
+import type {
+  ClientDifficulty,
+  Scenario,
+  ServiceKey,
+  TranscriptTurn
+} from "@/lib/types";
 
 export type ConversationEngine = {
   reply(args: {
     scenario: Scenario;
     transcript: TranscriptTurn[];
     sellerText: string;
+    difficulty?: ClientDifficulty;
+    focusService?: ServiceKey;
+    maxTurns?: number;
   }): Promise<string>;
 };
 
@@ -23,14 +31,20 @@ export class ClientPersonaEngine implements ConversationEngine {
   async reply({
     scenario,
     transcript,
-    sellerText
+    sellerText,
+    difficulty = "neutre",
+    focusService,
+    maxTurns = 5
   }: {
     scenario: Scenario;
     transcript: TranscriptTurn[];
     sellerText: string;
+    difficulty?: ClientDifficulty;
+    focusService?: ServiceKey;
+    maxTurns?: number;
   }) {
-    const prompt = buildClientSystemPrompt(scenario);
-    const input = buildClientTurnInput(transcript, sellerText);
+    const prompt = buildClientSystemPrompt(scenario, difficulty, focusService);
+    const input = buildClientTurnInput(transcript, sellerText, maxTurns);
     const geminiApiKey = getGeminiApiKey();
     // Gemini est le moteur texte principal. DeepSeek reste un repli optionnel.
     const preferDeepSeek = aiConfig.textProvider === "deepseek";
@@ -124,7 +138,11 @@ export class ClientPersonaEngine implements ConversationEngine {
   }
 }
 
-function buildClientTurnInput(transcript: TranscriptTurn[], sellerText: string) {
+function buildClientTurnInput(
+  transcript: TranscriptTurn[],
+  sellerText: string,
+  maxTurns = 5
+) {
   const clientTurns = transcript.filter((turn) => turn.speaker === "client").length;
   const sellerTurns = transcript.filter((turn) => turn.speaker === "seller").length;
 
@@ -138,7 +156,7 @@ DERNIERE PHRASE DU VENDEUR (a laquelle tu reponds maintenant):
 CONSIGNE DE TOUR:
 - Reponds directement et precisement a cette derniere phrase du vendeur, en
   restant coherent avec tout ce qui a deja ete dit plus haut.
-- Tour client a produire: ${clientTurns + 1}/5. Tours vendeur deja faits: ${sellerTurns}/5.
+- Tour client a produire: ${clientTurns + 1}/${maxTurns}. Tours vendeur deja faits: ${sellerTurns}/${maxTurns}.
 - L'exercice du vendeur est de te proposer, quand c'est pertinent, un financement
   (mensualites / carte Cpay) et/ou une protection (GLD, Estaly). Ne fais pas ce
   travail a sa place: donne des indices realistes sur ton frein budget ou ton

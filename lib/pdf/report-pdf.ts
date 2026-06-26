@@ -7,7 +7,8 @@ import {
   renderToBuffer
 } from "@react-pdf/renderer";
 import { createElement } from "react";
-import type { FinalReport } from "@/lib/types";
+import type { FinalReport, Scenario } from "@/lib/types";
+import { buildModelDialogue } from "@/lib/model-dialogue";
 
 const colors = {
   ink: "#111111",
@@ -98,12 +99,23 @@ const styles = StyleSheet.create({
 
 type Props = {
   report: FinalReport;
+  scenario?: Scenario;
   scenarioTitle: string;
   pseudo: string;
   createdAt: string;
 };
 
-function ReportDocument({ report, scenarioTitle, pseudo, createdAt }: Props) {
+function ReportDocument({
+  report,
+  scenario,
+  scenarioTitle,
+  pseudo,
+  createdAt
+}: Props) {
+  const modelDialogue =
+    scenario && report.discoveryReview
+      ? buildModelDialogue(scenario, report.discoveryReview)
+      : [];
   const skills: Array<[string, number, number]> = [
     ["Decouverte", report.score.decouverte, 15],
     ["Mensualites / Cpay", report.score.financement, 25],
@@ -166,6 +178,30 @@ function ReportDocument({ report, scenarioTitle, pseudo, createdAt }: Props) {
           )
         )
       ),
+      report.discoveryReview &&
+        createElement(
+          View,
+          { style: styles.section },
+          createElement(
+            Text,
+            { style: styles.h2 },
+            `Signaux captes / manques (${report.discoveryReview.capturedCount}/${report.discoveryReview.signals.length})`
+          ),
+          ...report.discoveryReview.signals.map((signal, index) =>
+            createElement(
+              Text,
+              { key: `sig-${index}`, style: styles.bullet },
+              `${signal.exploited ? "[capte]" : "[manque]"} "${signal.clientQuote}"`
+            )
+          ),
+          ...report.discoveryReview.services.map((service, index) =>
+            createElement(
+              Text,
+              { key: `svc-${index}`, style: styles.bullet },
+              `- ${service.reason}`
+            )
+          )
+        ),
       report.score.strengths.length > 0 &&
         createElement(
           View,
@@ -218,6 +254,33 @@ function ReportDocument({ report, scenarioTitle, pseudo, createdAt }: Props) {
                   { style: styles.better },
                   `Mieux : ${moment.betterAnswer}`
                 )
+            )
+          )
+        ),
+      modelDialogue.length > 0 &&
+        createElement(
+          View,
+          { style: styles.section },
+          createElement(Text, { style: styles.h2 }, "Comment un pro aurait fait"),
+          ...modelDialogue.map((exchange, index) =>
+            createElement(
+              View,
+              { key: `model-${index}`, style: styles.moment },
+              createElement(
+                Text,
+                { style: styles.momentLabel },
+                exchange.missed ? `${exchange.note} (rate)` : exchange.note
+              ),
+              createElement(
+                Text,
+                { style: styles.quote },
+                `Client : "${exchange.client}"`
+              ),
+              createElement(
+                Text,
+                { style: styles.better },
+                `Pro : ${exchange.expert}`
+              )
             )
           )
         ),

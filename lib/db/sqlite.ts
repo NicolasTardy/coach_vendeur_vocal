@@ -53,6 +53,25 @@ function migrate(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_reports_user ON reports(user_id, created_at DESC);
   `);
+
+  ensureColumn(db, "sessions", "difficulty", "TEXT");
+  ensureColumn(db, "sessions", "mode", "TEXT");
+  ensureColumn(db, "sessions", "focus_service", "TEXT");
+}
+
+// Ajoute une colonne si elle manque (SQLite n'a pas d'ADD COLUMN IF NOT EXISTS).
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  type: string
+) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
+  if (!columns.some((col) => col.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }
 
 export function getDb(): Database.Database {

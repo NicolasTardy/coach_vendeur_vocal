@@ -1,8 +1,17 @@
 import { aiConfig } from "@/lib/config";
 import { getGeminiApiKey } from "@/lib/env";
 import { buildCoachSystemPrompt } from "@/lib/prompts";
-import type { FinalReport, Scenario, TranscriptTurn } from "@/lib/types";
+import type {
+  DiscoveryReview,
+  FinalReport,
+  Scenario,
+  TranscriptTurn
+} from "@/lib/types";
 import { buildFallbackReport } from "@/lib/services/report-generator";
+import {
+  analyzeDiscovery,
+  clampServiceScores
+} from "@/lib/services/signal-analysis";
 import {
   createDeepSeekChatCompletion,
   extractDeepSeekText
@@ -27,6 +36,9 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
     scenario: Scenario;
     transcript: TranscriptTurn[];
   }) {
+    // Socle deterministe: faits fiables sur signaux/services, calcules en code.
+    const review = analyzeDiscovery(scenario, transcript);
+
     if (aiConfig.textProvider === "deepseek" && process.env.DEEPSEEK_API_KEY) {
       const data = await createDeepSeekChatCompletion({
         model: aiConfig.deepseekCoachModel,
@@ -35,7 +47,8 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
             role: "system",
             content: `${buildCoachSystemPrompt(
               scenario,
-              transcript
+              transcript,
+              review
             )}\n\nRetourne du json strict.`
           },
           {
@@ -54,37 +67,39 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
       try {
         return normalizeAiReport(
           parseAiJsonObject(extractDeepSeekText(data)),
-          buildFallbackReport(scenario, transcript)
+          buildFallbackReport(scenario, transcript, review),
+          review
         );
       } catch {
-        return buildFallbackReport(scenario, transcript);
+        return buildFallbackReport(scenario, transcript, review);
       }
     }
 
     if (aiConfig.textProvider === "gemini" && getGeminiApiKey()) {
       const data = await generateGeminiContent({
         model: aiConfig.geminiTextModel,
-        systemInstruction: buildCoachSystemPrompt(scenario, transcript),
+        systemInstruction: buildCoachSystemPrompt(scenario, transcript, review),
         parts: [{ text: "Analyse et retourne uniquement du JSON strict." }],
-        maxOutputTokens: 4000,
+        // Marge large + budget de reflexion modeste: l'analyse est le moment ou
+        // un peu de raisonnement ameliore la qualite, sans tronquer le JSON.
+        maxOutputTokens: 8000,
         responseMimeType: "application/json",
-        // Pas de budget de reflexion: tous les tokens vont au JSON du rapport,
-        // sinon la sortie est tronquee et on retombe sur le rapport generique.
-        thinkingBudget: 0
+        thinkingBudget: 2048
       });
 
       try {
         return normalizeAiReport(
           parseAiJsonObject(extractGeminiText(data)),
-          buildFallbackReport(scenario, transcript)
+          buildFallbackReport(scenario, transcript, review),
+          review
         );
       } catch {
-        return buildFallbackReport(scenario, transcript);
+        return buildFallbackReport(scenario, transcript, review);
       }
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      return buildFallbackReport(scenario, transcript);
+      return buildFallbackReport(scenario, transcript, review);
     }
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -95,7 +110,7 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
       },
       body: JSON.stringify({
         model: aiConfig.textModel,
-        instructions: buildCoachSystemPrompt(scenario, transcript),
+        instructions: buildCoachSystemPrompt(scenario, transcript, review),
         input: "Analyse et retourne uniquement du JSON strict.",
         max_output_tokens: 1600,
         text: {
@@ -115,17 +130,19 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
     try {
       return normalizeAiReport(
         parseAiJsonObject(data.output_text ?? ""),
-        buildFallbackReport(scenario, transcript)
+        buildFallbackReport(scenario, transcript, review),
+        review
       );
     } catch {
-      return buildFallbackReport(scenario, transcript);
+      return buildFallbackReport(scenario, transcript, review);
     }
   }
 }
 
 function normalizeAiReport(
   payload: Record<string, unknown>,
-  fallback: FinalReport
+  fallback: FinalReport,
+  review: DiscoveryReview
 ): FinalReport {
   payload = asRecord(payload.report ?? payload.analysis ?? payload.result ?? payload);
   const scorePayload = asRecord(payload.score);
@@ -188,7 +205,10 @@ function normalizeAiReport(
 
   return {
     summary: stringifyField(payload.summary) || fallback.summary,
-    score,
+    // Garde-fous deterministes sur les notes services (coherence avec les faits).
+    score: clampServiceScores(score, review),
+    // Source de verite deterministe: jamais l'IA.
+    discoveryReview: review,
     keyMoments: Array.isArray(payload.keyMoments)
       ? payload.keyMoments.map((rawItem, index) => {
           const item = asRecord(rawItem);

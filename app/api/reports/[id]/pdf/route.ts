@@ -23,6 +23,7 @@ export async function GET(_request: Request, { params }: Params) {
   const scenario = getScenario(stored.scenarioId);
   const pdfBuffer = await renderReportPdf({
     report: stored.report,
+    scenario,
     scenarioTitle: scenario?.title ?? stored.scenarioId,
     pseudo: auth.pseudo ?? "anonyme",
     createdAt: stored.createdAt

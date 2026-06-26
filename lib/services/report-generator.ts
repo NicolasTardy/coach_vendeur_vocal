@@ -1,8 +1,29 @@
-import type { FinalReport, Scenario, TranscriptTurn } from "@/lib/types";
+import type {
+  DiscoveryReview,
+  FinalReport,
+  Scenario,
+  ServiceKey,
+  TranscriptTurn
+} from "@/lib/types";
+import { analyzeDiscovery, SERVICE_LABELS } from "@/lib/services/signal-analysis";
+
+// Note service deterministe pour le repli (sans IA): derivee du verdict mesure.
+function serviceFallbackScore(review: DiscoveryReview, service: ServiceKey) {
+  const verdict = review.services.find((item) => item.service === service)?.verdict;
+  switch (verdict) {
+    case "captee":
+      return 16;
+    case "bonne_abstention":
+      return 22;
+    default:
+      return 4; // manquee, erreur_eligibilite ou inconnu
+  }
+}
 
 export function buildFallbackReport(
   scenario: Scenario,
-  transcript: TranscriptTurn[]
+  transcript: TranscriptTurn[],
+  review: DiscoveryReview = analyzeDiscovery(scenario, transcript)
 ): FinalReport {
   const sellerTurns = transcript.filter((turn) => turn.speaker === "seller");
   const lastSellerTurn = sellerTurns.at(-1)?.text ?? "Pas encore de reponse vendeur.";
@@ -14,7 +35,8 @@ export function buildFallbackReport(
     ) ?? scenario.objections[0];
 
   return {
-    summary: `Simulation sur ${scenario.title}. Le client etait deja conseille et hesitait entre ${scenario.productOptions.length} options. Le point cle est de transformer cette hesitation en choix final, mensualites et protections pertinentes.`,
+    summary: buildReviewSummary(scenario, review),
+    discoveryReview: review,
     score: {
       // Bareme recentre sur les reflexes services. Max global = 100.
       // decouverte 15 + mensualites/Cpay 25 + GLD 25 + Estaly/pertinence 25 + objections 5 + closing 5
@@ -24,9 +46,9 @@ export function buildFallbackReport(
       reformulation: 5,
       argumentationProduit: 6,
       argumentationServices: 5,
-      financement: 10,
-      garantieExtension: 10,
-      assuranceEsthetisme: 10,
+      financement: serviceFallbackScore(review, "cpay"),
+      garantieExtension: serviceFallbackScore(review, "gld"),
+      assuranceEsthetisme: serviceFallbackScore(review, "estaly"),
       objections: 3,
       closing: 3,
       relationnel: 6,
@@ -84,4 +106,37 @@ export function buildFallbackReport(
     ],
     rawText: ""
   };
+}
+
+// Synthese en 3 temps, deterministe: 1 reussite, l'occasion manquee n1, le
+// reflexe a travailler. Sert de repli quand l'IA n'est pas disponible.
+function buildReviewSummary(scenario: Scenario, review: DiscoveryReview) {
+  const captured = review.services.find((service) => service.verdict === "captee");
+  const abstention = review.services.find(
+    (service) => service.verdict === "bonne_abstention"
+  );
+  const missed = review.services.find((service) => service.verdict === "manquee");
+  const error = review.services.find(
+    (service) => service.verdict === "erreur_eligibilite"
+  );
+
+  const win = captured
+    ? `Bien joue: tu as propose ${SERVICE_LABELS[captured.service]}, pertinent ici.`
+    : abstention
+      ? `Bien joue: tu n'as pas propose ${SERVICE_LABELS[abstention.service]}, non pertinent sur ce produit.`
+      : "Tu as garde un echange clair avec le client.";
+
+  const gap = error
+    ? `Occasion manquee n1: tu as propose ${SERVICE_LABELS[error.service]} alors qu'il n'est pas eligible ici.`
+    : missed
+      ? `Occasion manquee n1: ${SERVICE_LABELS[missed.service]} etait pertinent mais jamais propose.`
+      : "Aucune occasion de service majeure manquee.";
+
+  const next = missed
+    ? `A travailler en priorite: declencher ${SERVICE_LABELS[missed.service]} sur le bon signal client.`
+    : error
+      ? "A travailler en priorite: verifier l'eligibilite avant de proposer une protection."
+      : "A travailler en priorite: verrouiller le micro-closing service par service.";
+
+  return `Simulation sur ${scenario.title}. ${win} ${gap} ${next}`;
 }

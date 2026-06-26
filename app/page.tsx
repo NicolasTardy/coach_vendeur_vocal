@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   BarChart3,
+  CheckCircle2,
   ChevronRight,
+  GraduationCap,
   Mic,
   Play,
   Volume2,
@@ -12,7 +15,8 @@ import {
   Send,
   Sparkles,
   Square,
-  Trophy
+  Trophy,
+  XCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,13 +30,43 @@ import {
   type VoiceInputProvider
 } from "@/lib/services/voice-input-provider";
 import { scenarios } from "@/lib/scenarios";
-import type { FinalReport, Scenario, TrainingSession, TranscriptTurn } from "@/lib/types";
+import { buildModelDialogue, type ModelExchange } from "@/lib/model-dialogue";
+import {
+  maxClientTurns,
+  maxSellerTurns,
+  SESSION_MODE_META
+} from "@/lib/session-config";
+import { DIFFICULTY_META, DIFFICULTY_ORDER } from "@/lib/services/difficulty";
+import type { LiveHint } from "@/lib/services/live-hint";
+import type {
+  ClientDifficulty,
+  FinalReport,
+  Scenario,
+  ServiceKey,
+  SessionMode,
+  TrainingSession,
+  TranscriptTurn
+} from "@/lib/types";
 import { cx } from "@/lib/utils";
+
+type DifficultyChoice = ClientDifficulty | "auto";
+type FocusChoice = ServiceKey | "auto";
 
 type Step = "setup" | "simulation" | "report";
 type Status = "idle" | "recording" | "client" | "analysis";
-const MAX_SELLER_TURNS = 5;
-const MAX_CLIENT_TURNS = 5;
+const FOCUS_LABELS: Record<ServiceKey, string> = {
+  cpay: "Cpay",
+  gld: "GLD",
+  estaly: "Estaly"
+};
+const FOCUS_CHOICES: ServiceKey[] = ["cpay", "gld", "estaly"];
+type Recommendation = {
+  service: string;
+  label: string;
+  reason: string;
+  scenarioId: string | null;
+  scenarioTitle: string | null;
+};
 
 function getAudioFilename(audio: Blob) {
   if (audio.type.includes("mp4")) return "seller.m4a";
@@ -78,6 +112,14 @@ export default function Home() {
   const [step, setStep] = useState<Step>("setup");
   const [pseudo, setPseudo] = useState("");
   const [selectedScenarioId, setSelectedScenarioId] = useState(scenarios[0].id);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] =
+    useState<DifficultyChoice>("auto");
+  const [recommendedDifficulty, setRecommendedDifficulty] =
+    useState<ClientDifficulty>("neutre");
+  const [selectedMode, setSelectedMode] = useState<SessionMode>("full");
+  const [selectedFocus, setSelectedFocus] = useState<FocusChoice>("auto");
+  const [recommendedFocus, setRecommendedFocus] = useState<ServiceKey>("cpay");
 
   useEffect(() => {
     fetch("/api/me")
@@ -92,6 +134,37 @@ export default function Home() {
       .catch(() => router.replace("/welcome"));
   }, [router]);
 
+  // Boucle d'entrainement: on remonte la prochaine etape (reflexe faible) et on
+  // preselectionne le scenario passe en lien profond depuis /progression.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("scenario");
+    if (wanted && scenarios.some((scenario) => scenario.id === wanted)) {
+      setSelectedScenarioId(wanted);
+    }
+
+    fetch("/api/progress")
+      .then((response) => (response.ok ? response.json() : null))
+      .then(
+        (
+          data: {
+            recommendation?: Recommendation | null;
+            recommendedDifficulty?: ClientDifficulty;
+          } | null
+        ) => {
+          if (data?.recommendation) {
+            setRecommendation(data.recommendation);
+            const service = data.recommendation.service;
+            if (service === "cpay" || service === "gld" || service === "estaly") {
+              setRecommendedFocus(service);
+            }
+          }
+          if (data?.recommendedDifficulty)
+            setRecommendedDifficulty(data.recommendedDifficulty);
+        }
+      )
+      .catch(() => {});
+  }, []);
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/welcome");
@@ -104,6 +177,7 @@ export default function Home() {
   const [sellerDraft, setSellerDraft] = useState("");
   const [error, setError] = useState("");
   const [lastSellerText, setLastSellerText] = useState("");
+  const [liveHint, setLiveHint] = useState<LiveHint>(null);
   const [clientVoiceEnabled, setClientVoiceEnabled] = useState(false);
   const [clientVoicePassword, setClientVoicePassword] = useState("");
   const [clientVoiceError, setClientVoiceError] = useState("");
@@ -121,7 +195,14 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         scenarioId: selectedScenarioId,
-        includeAudio: clientVoiceEnabled
+        includeAudio: clientVoiceEnabled,
+        mode: selectedMode,
+        ...(selectedDifficulty === "auto"
+          ? {}
+          : { difficulty: selectedDifficulty }),
+        ...(selectedMode === "drill" && selectedFocus !== "auto"
+          ? { focusService: selectedFocus }
+          : {})
       })
     });
 
@@ -256,6 +337,7 @@ export default function Home() {
       return;
     }
 
+    setLiveHint(null);
     const formData = new FormData();
     if (audio) {
       formData.append("audio", audio, getAudioFilename(audio));
@@ -293,10 +375,12 @@ export default function Home() {
       session: TrainingSession;
       sellerText: string;
       clientTurn?: TranscriptTurn;
+      liveHint?: LiveHint;
       maxTurnsReached?: boolean;
     };
     setSession((prev) => withClientAudio(data.session, prev, data.clientTurn));
     setLastSellerText(data.sellerText);
+    setLiveHint(data.liveHint ?? null);
     if (clientVoiceEnabled && data.clientTurn) {
       playClientVoice(data.clientTurn ?? data.session.transcript.at(-1));
     }
@@ -456,6 +540,15 @@ export default function Home() {
             setSelectedScenarioId={setSelectedScenarioId}
             scenarios={scenarios}
             selectedScenario={selectedScenario}
+            recommendation={recommendation}
+            selectedDifficulty={selectedDifficulty}
+            setSelectedDifficulty={setSelectedDifficulty}
+            recommendedDifficulty={recommendedDifficulty}
+            selectedMode={selectedMode}
+            setSelectedMode={setSelectedMode}
+            selectedFocus={selectedFocus}
+            setSelectedFocus={setSelectedFocus}
+            recommendedFocus={recommendedFocus}
             error={error}
             onStart={startSession}
           />
@@ -468,6 +561,7 @@ export default function Home() {
             status={status}
             error={error}
             lastSellerText={lastSellerText}
+            liveHint={liveHint}
             sellerDraft={sellerDraft}
             setSellerDraft={setSellerDraft}
             textInput={textInput}
@@ -491,6 +585,10 @@ export default function Home() {
           <ReportScreen
             report={report}
             reportId={reportId}
+            scenario={
+              scenarios.find((item) => item.id === session.scenarioId) ??
+              selectedScenario
+            }
             onReplay={replayMoment}
             onNew={() => {
               setSession(null);
@@ -541,16 +639,28 @@ function AppTopBar({
         </div>
       </div>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-0 sm:flex sm:items-center">
+      <div className="mt-3 flex flex-wrap gap-2 sm:mt-0 sm:items-center">
+        <Link
+          href="/progression"
+          className="flex min-h-9 flex-1 items-center justify-center rounded-md border border-black/15 bg-white px-3 text-center text-xs font-black text-ink"
+        >
+          Progression
+        </Link>
+        <Link
+          href="/drills"
+          className="flex min-h-9 flex-1 items-center justify-center rounded-md border border-black/15 bg-white px-3 text-center text-xs font-black text-ink"
+        >
+          Flash
+        </Link>
         <Link
           href="/espace"
-          className="flex min-h-9 items-center justify-center rounded-md border border-black/15 bg-white px-2 text-center text-xs font-black text-ink"
+          className="flex min-h-9 flex-1 items-center justify-center rounded-md border border-black/15 bg-white px-3 text-center text-xs font-black text-ink"
         >
           Espace
         </Link>
         <Link
           href="/formations"
-          className="flex min-h-9 items-center justify-center rounded-md border border-black/15 bg-white px-2 text-center text-xs font-black text-ink"
+          className="flex min-h-9 flex-1 items-center justify-center rounded-md border border-black/15 bg-white px-3 text-center text-xs font-black text-ink"
         >
           Formations
         </Link>
@@ -558,7 +668,7 @@ function AppTopBar({
           <button
             onClick={onLogout}
             type="button"
-            className="min-h-9 rounded-md bg-ink px-2 text-xs font-bold text-white"
+            className="min-h-9 flex-1 rounded-md bg-ink px-3 text-xs font-bold text-white"
           >
             Sortir
           </button>
@@ -574,6 +684,15 @@ function SetupScreen({
   setSelectedScenarioId,
   scenarios,
   selectedScenario,
+  recommendation,
+  selectedDifficulty,
+  setSelectedDifficulty,
+  recommendedDifficulty,
+  selectedMode,
+  setSelectedMode,
+  selectedFocus,
+  setSelectedFocus,
+  recommendedFocus,
   error,
   onStart
 }: {
@@ -582,9 +701,20 @@ function SetupScreen({
   setSelectedScenarioId: (value: string) => void;
   scenarios: Scenario[];
   selectedScenario: Scenario;
+  recommendation: Recommendation | null;
+  selectedDifficulty: DifficultyChoice;
+  setSelectedDifficulty: (value: DifficultyChoice) => void;
+  recommendedDifficulty: ClientDifficulty;
+  selectedMode: SessionMode;
+  setSelectedMode: (value: SessionMode) => void;
+  selectedFocus: FocusChoice;
+  setSelectedFocus: (value: FocusChoice) => void;
+  recommendedFocus: ServiceKey;
   error: string;
   onStart: () => void;
 }) {
+  const effectiveDifficulty =
+    selectedDifficulty === "auto" ? recommendedDifficulty : selectedDifficulty;
   return (
     <section className="space-y-5 px-4 pb-7 pt-5">
       <div className="rounded-lg bg-ink p-5 text-white shadow-soft">
@@ -608,14 +738,54 @@ function SetupScreen({
           et protections utiles.
         </p>
         <div className="mt-3 rounded-md bg-white/10 p-3 text-xs leading-5 text-white/75">
-          <p className="font-black text-white">Format : 5 questions/reponses.</p>
+          <p className="font-black text-white">
+            Format : {maxSellerTurns(selectedMode)} questions/reponses.
+          </p>
           <p>
-            Tu as 5 prises de parole vendeur. A chaque tour, capte un mot du
-            client, adapte ta reponse, puis avance vers le choix, le budget et
-            les services.
+            Tu as {maxSellerTurns(selectedMode)} prises de parole vendeur. A
+            chaque tour, capte un mot du client, adapte ta reponse, puis avance
+            vers le choix, le budget et les services.
           </p>
         </div>
       </div>
+
+      {recommendation && (
+        <Link
+          href="/progression"
+          className="block rounded-lg bg-ink p-4 text-white shadow-soft"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-citron">
+              Ta prochaine etape
+            </p>
+            <span className="rounded-full bg-citron px-2 py-0.5 text-[0.62rem] font-black uppercase text-ink">
+              {recommendation.label}
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-bold leading-5 text-white/85">
+            {recommendation.reason}
+          </p>
+          <p className="mt-2 text-xs font-bold text-white/55">
+            Voir ma progression →
+          </p>
+        </Link>
+      )}
+
+      <Link
+        href="/drills"
+        className="flex items-center justify-between gap-3 rounded-lg border border-forest/25 bg-white p-4"
+      >
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
+            Echauffement flash · 2 min
+          </p>
+          <p className="mt-1 text-sm leading-5 text-black/70">
+            Quel service pour quel signal ? Mots interdits, eligibilite. A faire
+            avant la simulation pour activer les bons reflexes.
+          </p>
+        </div>
+        <ChevronRight className="shrink-0" size={20} />
+      </Link>
 
       <div className="space-y-3">
         {scenarios.map((scenario) => (
@@ -649,21 +819,114 @@ function SetupScreen({
         ))}
       </div>
 
+      <div className="rounded-lg border border-cobalt/25 bg-white p-4">
+        <DiscoveryBriefBody scenario={selectedScenario} />
+        <div className="mt-4 rounded-md bg-paper p-3 text-xs font-bold leading-5 text-black/65">
+          Reflexe attendu en 5 tours : 1 reformulation d&apos;un signal capte, 1
+          lecture en mensualites, 1 proposition Cpay transparente, 1 protection
+          utile reliee au risque, 1 micro-closing.
+        </div>
+      </div>
+
       <div className="rounded-lg border border-black/10 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
-          Produit selectionne
+          Format de session
         </p>
-        <p className="mt-2 text-sm leading-5 text-black/70">
-          {selectedScenario.title}. Le client simulera un budget de{" "}
-          {selectedScenario.budget}. Il hesite entre{" "}
-          {selectedScenario.productOptions.length} produits: a toi de conclure
-          le choix sans oublier mensualites et protections.
-        </p>
-        <div className="mt-3 rounded-md bg-paper p-3 text-xs font-bold leading-5 text-black/65">
-          Reflexe attendu en 5 tours : 1 question de choix, 1 reformulation du
-          mot client, 1 lecture en mensualites, 1 proposition Cpay transparente,
-          1 protection utile reliee au risque.
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {(["full", "drill"] as SessionMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setSelectedMode(mode)}
+              className={cx(
+                "rounded-md border px-3 py-2 text-xs font-black transition",
+                selectedMode === mode
+                  ? "border-ink bg-ink text-white"
+                  : "border-black/15 bg-white text-ink"
+              )}
+            >
+              {SESSION_MODE_META[mode].label}
+            </button>
+          ))}
         </div>
+        <p className="mt-3 text-xs leading-5 text-black/60">
+          {SESSION_MODE_META[selectedMode].hint}
+        </p>
+
+        {selectedMode === "drill" && (
+          <div className="mt-3 border-t border-black/10 pt-3">
+            <p className="text-[0.7rem] font-black uppercase tracking-[0.08em] text-forest">
+              Reflexe a travailler
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedFocus("auto")}
+                className={cx(
+                  "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                  selectedFocus === "auto"
+                    ? "border-ink bg-ink text-white"
+                    : "border-black/15 bg-white text-ink"
+                )}
+              >
+                Auto · {FOCUS_LABELS[recommendedFocus]}
+              </button>
+              {FOCUS_CHOICES.map((service) => (
+                <button
+                  key={service}
+                  type="button"
+                  onClick={() => setSelectedFocus(service)}
+                  className={cx(
+                    "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                    selectedFocus === service
+                      ? "border-ink bg-ink text-white"
+                      : "border-black/15 bg-white text-ink"
+                  )}
+                >
+                  {FOCUS_LABELS[service]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-black/10 bg-white p-4">
+        <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
+          Difficulte du client
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedDifficulty("auto")}
+            className={cx(
+              "rounded-full border px-3 py-1.5 text-xs font-black transition",
+              selectedDifficulty === "auto"
+                ? "border-ink bg-ink text-white"
+                : "border-black/15 bg-white text-ink"
+            )}
+          >
+            Auto · {DIFFICULTY_META[recommendedDifficulty].label}
+          </button>
+          {DIFFICULTY_ORDER.map((level) => (
+            <button
+              key={level}
+              type="button"
+              onClick={() => setSelectedDifficulty(level)}
+              className={cx(
+                "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                selectedDifficulty === level
+                  ? "border-ink bg-ink text-white"
+                  : "border-black/15 bg-white text-ink"
+              )}
+            >
+              {DIFFICULTY_META[level].label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-black/60">
+          {DIFFICULTY_META[effectiveDifficulty].hint}
+        </p>
       </div>
 
       {error && <p className="text-sm font-bold text-tomato">{error}</p>}
@@ -686,6 +949,7 @@ function SimulationScreen({
   status,
   error,
   lastSellerText,
+  liveHint,
   sellerDraft,
   setSellerDraft,
   textInput,
@@ -708,6 +972,7 @@ function SimulationScreen({
   status: Status;
   error: string;
   lastSellerText: string;
+  liveHint: LiveHint;
   sellerDraft: string;
   setSellerDraft: (value: string) => void;
   textInput: string;
@@ -725,6 +990,8 @@ function SimulationScreen({
   onSpeak: (turn?: TranscriptTurn) => void;
   onFinish: () => void;
 }) {
+  const MAX_SELLER_TURNS = maxSellerTurns(session.mode ?? "full");
+  const MAX_CLIENT_TURNS = maxClientTurns(session.mode ?? "full");
   const clientTurn = [...session.transcript]
     .reverse()
     .find((turn) => turn.speaker === "client");
@@ -766,6 +1033,18 @@ function SimulationScreen({
               Vendeur {sellerTurnsCount}/{MAX_SELLER_TURNS} - Client{" "}
               {Math.min(clientTurnsCount, MAX_CLIENT_TURNS)}/{MAX_CLIENT_TURNS}
             </p>
+            <span className="mt-1 flex flex-wrap gap-1">
+              {session.mode === "drill" && (
+                <span className="inline-block rounded-full bg-forest px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide text-white">
+                  Drill{session.focusService ? ` · ${FOCUS_LABELS[session.focusService]}` : ""}
+                </span>
+              )}
+              {session.difficulty && (
+                <span className="inline-block rounded-full bg-ink px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide text-white">
+                  Client {DIFFICULTY_META[session.difficulty].label}
+                </span>
+              )}
+            </span>
           </div>
         </div>
 
@@ -774,7 +1053,7 @@ function SimulationScreen({
             ? `Il te reste ${remainingSellerTurns} prise${
                 remainingSellerTurns > 1 ? "s" : ""
               } de parole pour proposer mensualites, Cpay et protections utiles.`
-            : "Les 5 prises de parole vendeur sont terminees. Lance l'analyse."}
+            : `Les ${MAX_SELLER_TURNS} prises de parole vendeur sont terminees. Lance l'analyse.`}
         </div>
 
         <div className="mt-5 flex items-center justify-center gap-2 voice-wave">
@@ -836,6 +1115,29 @@ function SimulationScreen({
         )}
       </div>
 
+      {liveHint && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-citron bg-citron/15 p-3">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-forest" />
+          <div>
+            <p className="text-[0.62rem] font-black uppercase tracking-[0.08em] text-forest">
+              {liveHint.tone === "explicit" ? "Indice" : "A surveiller"}
+            </p>
+            <p className="mt-0.5 text-sm font-bold leading-5 text-ink">
+              {liveHint.text}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <details className="mt-4 rounded-lg border border-cobalt/25 bg-white p-4">
+        <summary className="cursor-pointer list-none text-xs font-black uppercase tracking-[0.08em] text-cobalt">
+          Fiche client (rappel des signaux)
+        </summary>
+        <div className="mt-3">
+          <DiscoveryBriefBody scenario={scenario} showTitle={false} />
+        </div>
+      </details>
+
       <div className="mt-4 rounded-lg border border-black/10 bg-white p-3">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -868,7 +1170,9 @@ function SimulationScreen({
           value={textInput}
           onChange={(event) => setTextInput(event.target.value)}
           placeholder={
-            canAnswer ? "Ou tester en texte..." : "Session limitee a 5 reponses"
+            canAnswer
+              ? "Ou tester en texte..."
+              : `Session limitee a ${MAX_SELLER_TURNS} reponses`
           }
           disabled={!canAnswer || status !== "idle" || hasDraft}
           className="h-12 min-w-0 flex-1 rounded-md border border-black/10 bg-white px-3 text-sm font-semibold outline-none ring-forest focus:ring-4"
@@ -938,9 +1242,226 @@ function SimulationScreen({
           ? `Encore ${remainingSellerTurns} reponse${
               remainingSellerTurns > 1 ? "s" : ""
             }`
-          : "Analyser mes 5 reponses"}
+          : `Analyser mes ${MAX_SELLER_TURNS} reponses`}
       </button>
     </section>
+  );
+}
+
+const SERVICE_META: Record<string, { label: string; cls: string }> = {
+  cpay: { label: "Cpay", cls: "bg-cobalt text-white" },
+  gld: { label: "GLD", cls: "bg-forest text-white" },
+  estaly: { label: "Estaly", cls: "bg-tomato text-white" },
+  choix: { label: "Choix", cls: "bg-ink text-white" }
+};
+
+function ServiceChip({ service }: { service: string }) {
+  const meta = SERVICE_META[service] ?? SERVICE_META.choix;
+  return (
+    <span
+      className={cx(
+        "shrink-0 rounded-full px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide",
+        meta.cls
+      )}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
+// Fiche client: la decouverte est faite, on donne au vendeur le contexte et les
+// signaux deja captes pour qu'il enchaine directement sur les bons services.
+function DiscoveryBriefBody({
+  scenario,
+  showTitle = true
+}: {
+  scenario: Scenario;
+  showTitle?: boolean;
+}) {
+  const eligible = scenario.serviceEligibility.filter((item) => item.eligible);
+  const notEligible = scenario.serviceEligibility.filter((item) => !item.eligible);
+
+  return (
+    <>
+      {showTitle && (
+        <p className="text-xs font-black uppercase tracking-[0.08em] text-cobalt">
+          Fiche client — la decouverte est faite
+        </p>
+      )}
+      <p className={cx("text-sm leading-5 text-black/75", showTitle && "mt-2")}>
+        {scenario.discoveryRecap}
+      </p>
+
+      <p className="mt-4 text-[0.7rem] font-black uppercase tracking-[0.08em] text-forest">
+        Ce que le client a deja dit
+      </p>
+      <ul className="mt-2 space-y-2">
+        {scenario.capturedSignals.map((signal) => (
+          <li key={signal.clientQuote} className="rounded-md bg-paper p-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-bold leading-5 text-ink">
+                « {signal.clientQuote} »
+              </p>
+              <ServiceChip service={signal.service} />
+            </div>
+            <p className="mt-1 text-xs leading-4 text-black/60">{signal.reading}</p>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 space-y-2">
+        <div className="rounded-md bg-forest/5 p-2.5">
+          <p className="text-[0.7rem] font-black uppercase tracking-[0.08em] text-forest">
+            A viser
+          </p>
+          <p className="mt-1 text-xs leading-4 text-black/70">
+            {eligible
+              .map((item) => SERVICE_META[item.service]?.label ?? item.service)
+              .join(" · ")}
+          </p>
+        </div>
+        {notEligible.length > 0 && (
+          <div className="rounded-md border border-tomato/30 bg-tomato/5 p-2.5">
+            <p className="text-[0.7rem] font-black uppercase tracking-[0.08em] text-tomato">
+              Ne pas proposer
+            </p>
+            {notEligible.map((item) => (
+              <p key={item.service} className="mt-1 text-xs leading-4 text-black/70">
+                <span className="font-black">
+                  {SERVICE_META[item.service]?.label ?? item.service}
+                </span>{" "}
+                — {item.reason}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+const VERDICT_META: Record<
+  string,
+  { label: string; cls: string; icon: typeof CheckCircle2 }
+> = {
+  captee: { label: "Captée", cls: "text-forest", icon: CheckCircle2 },
+  bonne_abstention: {
+    label: "Bonne abstention",
+    cls: "text-forest",
+    icon: CheckCircle2
+  },
+  manquee: { label: "Manquée", cls: "text-tomato", icon: XCircle },
+  erreur_eligibilite: {
+    label: "Erreur éligibilité",
+    cls: "text-tomato",
+    icon: AlertTriangle
+  }
+};
+
+// Bloc de feedback DETERMINISTE: ce que le vendeur a capte/rate, calcule en code.
+function DiscoveryReviewCard({
+  review
+}: {
+  review: FinalReport["discoveryReview"];
+}) {
+  return (
+    <div className="rounded-lg border border-black/10 bg-white p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-black">Signaux captes / manques</h2>
+        <span className="shrink-0 text-xs font-black text-black/55">
+          {review.capturedCount}/{review.signals.length} captes
+        </span>
+      </div>
+
+      <ul className="mt-3 space-y-2">
+        {review.signals.map((signal) => (
+          <li key={signal.clientQuote} className="flex items-start gap-2">
+            {signal.exploited ? (
+              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-forest" />
+            ) : (
+              <XCircle size={16} className="mt-0.5 shrink-0 text-tomato" />
+            )}
+            <p
+              className={cx(
+                "min-w-0 flex-1 break-words text-sm leading-5",
+                signal.exploited ? "text-ink" : "text-black/55"
+              )}
+            >
+              « {signal.clientQuote} »
+            </p>
+            <ServiceChip service={signal.service} />
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 space-y-1.5 border-t border-black/10 pt-3">
+        {review.services.map((service) => {
+          const meta = VERDICT_META[service.verdict];
+          const Icon = meta.icon;
+          return (
+            <div key={service.service} className="flex items-center gap-2 text-xs">
+              <Icon size={14} className={cx("shrink-0", meta.cls)} />
+              <span className="font-black">
+                {SERVICE_META[service.service]?.label ?? service.service}
+              </span>
+              <span className={cx("font-bold", meta.cls)}>{meta.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Modele expert: comment un pro aurait deroule la vente, reflexes rates surlignes.
+function ModelDialogueCard({ exchanges }: { exchanges: ModelExchange[] }) {
+  const missedCount = exchanges.filter((item) => item.missed).length;
+
+  return (
+    <div className="rounded-lg border border-black/10 bg-white p-4">
+      <div className="flex items-center gap-2">
+        <GraduationCap size={18} />
+        <h2 className="text-base font-black">Comment un pro aurait fait</h2>
+      </div>
+      <p className="mt-1 text-xs leading-4 text-black/55">
+        {missedCount > 0
+          ? `${missedCount} rebond${missedCount > 1 ? "s" : ""} que tu as manque${
+              missedCount > 1 ? "s" : ""
+            }, surligne${missedCount > 1 ? "s" : ""} ci-dessous.`
+          : "Tu as suivi ce deroule : voila le modele a garder en tete."}
+      </p>
+
+      <ol className="mt-4 space-y-4">
+        {exchanges.map((exchange, index) => (
+          <li
+            key={index}
+            className={cx(
+              "rounded-md border p-3",
+              exchange.missed
+                ? "border-tomato/40 bg-tomato/5"
+                : "border-black/10 bg-paper"
+            )}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[0.62rem] font-black uppercase tracking-[0.08em] text-forest">
+                {exchange.note}
+              </p>
+              {exchange.missed && (
+                <span className="rounded-full bg-tomato px-2 py-0.5 text-[0.6rem] font-black uppercase text-white">
+                  Rate, a rejouer
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm leading-5 text-black/60">
+              Client : « {exchange.client} »
+            </p>
+            <p className="mt-1 text-sm font-bold leading-5 text-ink">
+              Pro : {exchange.expert}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -970,11 +1491,13 @@ function Transcript({ turns }: { turns: TranscriptTurn[] }) {
 function ReportScreen({
   report,
   reportId,
+  scenario,
   onReplay,
   onNew
 }: {
   report: FinalReport;
   reportId: string | null;
+  scenario: Scenario;
   onReplay: (turnIndex: number) => void;
   onNew: () => void;
 }) {
@@ -1023,6 +1546,10 @@ function ReportScreen({
         ))}
       </div>
 
+      {report.discoveryReview && (
+        <DiscoveryReviewCard review={report.discoveryReview} />
+      )}
+
       <ReportList
         icon={<BadgeCheck size={18} />}
         title="Bien joue"
@@ -1064,6 +1591,12 @@ function ReportScreen({
           </button>
         </div>
       ))}
+
+      {report.discoveryReview && (
+        <ModelDialogueCard
+          exchanges={buildModelDialogue(scenario, report.discoveryReview)}
+        />
+      )}
 
       <div className="rounded-lg border border-black/10 bg-white p-4">
         <h2 className="text-base font-black">A retravailler plus tard</h2>

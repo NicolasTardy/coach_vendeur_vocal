@@ -1,9 +1,76 @@
-import type { Scenario, TranscriptTurn } from "@/lib/types";
+import type {
+  ClientDifficulty,
+  DiscoveryReview,
+  Scenario,
+  ServiceKey,
+  TranscriptTurn
+} from "@/lib/types";
 import { buildSalesPlaybookContext } from "@/lib/sales-playbooks";
+import { difficultyRules } from "@/lib/services/difficulty";
+import { formatDiscoveryReview } from "@/lib/services/signal-analysis";
 
-export function buildClientSystemPrompt(scenario: Scenario) {
+const FOCUS_HINT: Record<ServiceKey, string> = {
+  cpay: "ton frein budget (le prix qui te fait hesiter)",
+  gld: "ton risque de panne (peur que ca lache apres la garantie)",
+  estaly: "ton risque taches/rayures au quotidien"
+};
+
+const SERVICE_LABELS: Record<string, string> = {
+  cpay: "Cpay (financement)",
+  gld: "GLD (garantie panne)",
+  estaly: "Estaly (protection esthetique)",
+  choix: "Aide au choix produit"
+};
+
+// Synthese de la decouverte deja faite, formatee pour les prompts.
+// Chaque signal: mot client -> ce que ca revele -> service vise.
+export function formatCapturedSignals(scenario: Scenario) {
+  return scenario.capturedSignals
+    .map(
+      (signal) =>
+        `- "${signal.clientQuote}" -> ${signal.reading} (${SERVICE_LABELS[signal.service]})`
+    )
+    .join("\n");
+}
+
+// Eligibilite des services: dit explicitement lesquels proposer et lequel NE PAS
+// proposer (connaissance conditionnelle: savoir quand s'abstenir).
+export function formatServiceEligibility(scenario: Scenario) {
+  return scenario.serviceEligibility
+    .map(
+      (item) =>
+        `- ${SERVICE_LABELS[item.service]}: ${
+          item.eligible ? "PERTINENT" : "NON PERTINENT"
+        } — ${item.reason}`
+    )
+    .join("\n");
+}
+
+// Brief de reprise complet (situation + signaux + eligibilite), partage par le
+// coach et l'UI vendeur pour que tout le monde parte du meme contexte.
+export function buildDiscoveryBrief(scenario: Scenario) {
+  return `Situation: ${scenario.discoveryRecap}
+
+Signaux deja captes pendant la decouverte:
+${formatCapturedSignals(scenario)}
+
+Services a viser (et a NE PAS proposer):
+${formatServiceEligibility(scenario)}`;
+}
+
+export function buildClientSystemPrompt(
+  scenario: Scenario,
+  difficulty: ClientDifficulty = "neutre",
+  focusService?: ServiceKey
+) {
+  const focusBlock = focusService
+    ? `\n\nMODE DRILL — session courte et focalisee sur UN seul reflexe: ${SERVICE_LABELS[focusService]}. Mets surtout en avant ${FOCUS_HINT[focusService]} et resiste principalement sur ce point. Ne disperse pas vers d'autres services: l'exercice porte sur celui-ci.`
+    : "";
+
   return `
 Tu joues un client dans un magasin BUT/Conforama.
+
+${difficultyRules(difficulty, scenario)}${focusBlock}
 
 Profil client: ${scenario.clientPersona}
 Produit/rayon: ${scenario.department}
@@ -13,6 +80,10 @@ Budget: ${scenario.budget}
 Moment ou commence le training: le vendeur a deja conseille le client.
 Le client est satisfait des conseils et hesite entre ces produits:
 ${scenario.productOptions.map((option) => `- ${option}`).join("\n")}
+
+Decouverte deja faite (tu as DEJA dit tout ca au vendeur, reste coherent):
+${formatCapturedSignals(scenario)}
+
 Phrase de depart du client: ${scenario.openingLine}
 Reflexes a entrainer: ${scenario.trainingFocus.join(", ")}
 Services pertinents pour ce produit: ${scenario.serviceTargets.join(", ")}
@@ -32,6 +103,9 @@ Regles absolues:
 - Si la derniere phrase du vendeur est coupee, incomplete ou incoherente,
   demande naturellement de repeter au lieu d'inventer ce qu'il voulait dire.
 - Exprime tes besoins progressivement; ouvre-toi si le vendeur questionne/reformule.
+- Reste coherent avec la decouverte deja faite: tu peux rappeler un element en une
+  phrase si c'est naturel, mais ne re-deroule pas tout; laisse le vendeur exploiter
+  ces signaux pour proposer le bon service.
 - La simulation est courte: maximum 5 repliques client et 5 reponses vendeur.
   Chaque replique client doit donner un indice utile sans faire le travail du vendeur.
 - Si le vendeur presente le prix uniquement en montant total alors que le budget
@@ -50,7 +124,8 @@ Regles absolues:
 
 export function buildCoachSystemPrompt(
   scenario: Scenario,
-  transcript: TranscriptTurn[]
+  transcript: TranscriptTurn[],
+  review: DiscoveryReview
 ) {
   return `
 Tu es un expert en vente terrain BUT/Conforama et en sciences cognitives.
@@ -69,11 +144,21 @@ le vendeur doit decouvrir vite, reformuler, proposer les mensualites/Cpay et
 les protections pertinentes avant la fin. Evalue aussi sa gestion du temps.
 
 Scenario: ${scenario.title}
-Situation de depart: le client est satisfait des conseils produits et hesite
-entre ${scenario.productOptions.join(" / ")}.
+
+BRIEF DE REPRISE (la decouverte etait deja faite, le vendeur devait enchainer):
+${buildDiscoveryBrief(scenario)}
+
 Services cibles prioritaires: ${scenario.serviceTargets.join(", ")}
 Focus de la session: ${scenario.trainingFocus.join(", ")}
 Criteres de succes: ${scenario.successCriteria.join(", ")}
+
+FAITS MESURES (analyse deterministe fiable, NE LES CONTREDIS PAS):
+${formatDiscoveryReview(review)}
+Appuie ton scoring services et tes "occasions manquees" sur ces faits. Si un
+service est marque NON EXPLOITE/manquee, c'est une occasion manquee reelle. Si un
+service est en erreur_eligibilite, penalise explicitement. Si bonne_abstention,
+felicite le vendeur d'avoir su NE PAS le proposer.
+
 Transcription:
 ${formatTranscript(transcript)}
 
@@ -113,7 +198,17 @@ Principes:
 - Consolidation: plan d'espacement Demain/J+3/J+7/J+14/J+30.
 - Motivation: rappeler le sens commercial et client du service propose.
 - Sentiment d'efficacite: nommer une reussite precise due a une strategie controlable.
+- Summary en 3 temps (3-4 phrases max): 1) une reussite concrete attribuee a une
+  strategie controlable du vendeur, 2) l'occasion manquee n1 (signal/service rate
+  d'apres les faits mesures), 3) le seul reflexe a travailler en priorite ensuite.
 - Au moins une priorite doit porter sur le prix en mensualites, Cpay, GLD ou Estaly.
+- Signaux captes vs manques: pour chaque signal du brief, dis si le vendeur l'a
+  exploite. Un signal evident ignore (ex: "panne" -> GLD, "tache/enfant" -> Estaly,
+  "budget" -> mensualites) est une occasion manquee a nommer explicitement.
+- Eligibilite: si le vendeur propose un service marque NON PERTINENT (ex: Estaly sur
+  electromenager/image-son), penalise-le; s'il s'abstient a juste titre, valorise-le.
+- Quand tu proposes une "betterAnswer", appuie-toi sur les phrases d'amorce et les
+  scripts d'objection reels fournis dans l'argumentaire ci-dessus (mots BUT exacts).
 - Penaliser proposition de service prematuree/forcee/opaque; valoriser
   transparence, autorisation prealable, exemple concret, closing doux.
 
