@@ -94,6 +94,8 @@ export type KeyMoment = {
   turnIndex: number;
   clientQuote: string;
   sellerQuote: string;
+  wellDone?: string;
+  improvement?: string;
   issue: string;
   betterAnswer: string;
 };

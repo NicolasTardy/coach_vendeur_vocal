@@ -3,6 +3,7 @@ import type {
   DiscoveryReview,
   Scenario,
   ServiceKey,
+  SessionMode,
   TranscriptTurn
 } from "@/lib/types";
 import { buildSalesPlaybookContext } from "@/lib/sales-playbooks";
@@ -125,11 +126,25 @@ Regles absolues:
 export function buildCoachSystemPrompt(
   scenario: Scenario,
   transcript: TranscriptTurn[],
-  review: DiscoveryReview
+  review: DiscoveryReview,
+  mode: SessionMode = "full",
+  focusService?: ServiceKey
 ) {
+  const drillBlock =
+    mode === "drill" && focusService
+      ? `
+MODE DRILL CIBLE:
+- Cette session porte UNIQUEMENT sur ${SERVICE_LABELS[focusService]}.
+- Evalue et conseille uniquement ce reflexe.
+- Ne reproche jamais au vendeur de ne pas avoir propose les deux autres services.
+- N'inclus les deux autres services ni dans les priorites, ni dans les occasions
+  manquees, ni dans les moments cles.
+`
+      : "";
   return `
 Tu es un expert en vente terrain BUT/Conforama et en sciences cognitives.
 Analyse cette simulation.
+${drillBlock}
 
 OBJECTIF D'APPRENTISSAGE:
 Le vendeur doit automatiser 3 reflexes terrain:
@@ -188,8 +203,9 @@ Principes:
 - Feedback: cite les phrases exactes du vendeur et explique l'ecart avec l'attendu.
 - Priorites: chaque priorite doit expliquer 1) le bon reflexe, 2) les mots client
   a capter, 3) une formulation vendeur concrete.
-- Moment cle: pour chaque moment, explique ce qu'il fallait capter dans la phrase
-  client, puis comment adapter la reponse vendeur au lieu de derouler un script.
+- Moment cle: souligne precisement un passage bien realise par le vendeur et un
+  passage qu'il peut ameliorer. Explique ensuite ce qu'il fallait capter dans la
+  phrase client et comment adapter la reponse sans derouler un script.
 - Engagement actif: chaque exercice doit demander de redire une phrase vendeur.
 - Contrainte courte: transforme la limite des 5 tours en critere de decision
   rapide, pas en simple sanction.
@@ -222,7 +238,7 @@ Methodes terrain attendues:
   quotidien) -> exemple concret -> cout/benefice clair -> verifier sans forcer.
 
 JSON strict uniquement. Champs attendus:
-summary; global, accueil, decouverte, reformulation, argumentationProduit, argumentationServices, financement, garantieExtension, assuranceEsthetisme, objections, closing, relationnel; strengths[], priorities[], recommendedExercises[]; keyMoments[{turnIndex,clientQuote,sellerQuote,issue,betterAnswer}]; objectionsReview[{objection,givenAnswer,betterAnswer}]; priorityTips[]; spacedPlan[{when,task}]; memo[].
+summary; global, accueil, decouverte, reformulation, argumentationProduit, argumentationServices, financement, garantieExtension, assuranceEsthetisme, objections, closing, relationnel; strengths[], priorities[], recommendedExercises[]; keyMoments[{turnIndex,clientQuote,sellerQuote,wellDone,improvement,issue,betterAnswer}]; objectionsReview[{objection,givenAnswer,betterAnswer}]; priorityTips[]; spacedPlan[{when,task}]; memo[].
 
 Format attendu pour priorities[]:
 - "Reflexe: ... | Mots a capter: ... | Phrase utile: ..."

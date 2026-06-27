@@ -5,6 +5,8 @@ import type {
   DiscoveryReview,
   FinalReport,
   Scenario,
+  ServiceKey,
+  SessionMode,
   TranscriptTurn
 } from "@/lib/types";
 import { buildFallbackReport } from "@/lib/services/report-generator";
@@ -25,19 +27,32 @@ export type CoachAnalysisEngine = {
   analyze(args: {
     scenario: Scenario;
     transcript: TranscriptTurn[];
+    mode?: SessionMode;
+    focusService?: ServiceKey;
   }): Promise<FinalReport>;
 };
 
 export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
   async analyze({
     scenario,
-    transcript
+    transcript,
+    mode = "full",
+    focusService
   }: {
     scenario: Scenario;
     transcript: TranscriptTurn[];
+    mode?: SessionMode;
+    focusService?: ServiceKey;
   }) {
     // Socle deterministe: faits fiables sur signaux/services, calcules en code.
-    const review = analyzeDiscovery(scenario, transcript);
+    const activeFocus = mode === "drill" ? focusService : undefined;
+    const review = analyzeDiscovery(scenario, transcript, activeFocus);
+    const fallback = buildFallbackReport(
+      scenario,
+      transcript,
+      review,
+      activeFocus
+    );
 
     if (aiConfig.textProvider === "deepseek" && process.env.DEEPSEEK_API_KEY) {
       const data = await createDeepSeekChatCompletion({
@@ -48,7 +63,9 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
             content: `${buildCoachSystemPrompt(
               scenario,
               transcript,
-              review
+              review,
+              mode,
+              activeFocus
             )}\n\nRetourne du json strict.`
           },
           {
@@ -67,18 +84,24 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
       try {
         return normalizeAiReport(
           parseAiJsonObject(extractDeepSeekText(data)),
-          buildFallbackReport(scenario, transcript, review),
+          fallback,
           review
         );
       } catch {
-        return buildFallbackReport(scenario, transcript, review);
+        return fallback;
       }
     }
 
     if (aiConfig.textProvider === "gemini" && getGeminiApiKey()) {
       const data = await generateGeminiContent({
         model: aiConfig.geminiTextModel,
-        systemInstruction: buildCoachSystemPrompt(scenario, transcript, review),
+        systemInstruction: buildCoachSystemPrompt(
+          scenario,
+          transcript,
+          review,
+          mode,
+          activeFocus
+        ),
         parts: [{ text: "Analyse et retourne uniquement du JSON strict." }],
         // Marge large + budget de reflexion modeste: l'analyse est le moment ou
         // un peu de raisonnement ameliore la qualite, sans tronquer le JSON.
@@ -90,16 +113,16 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
       try {
         return normalizeAiReport(
           parseAiJsonObject(extractGeminiText(data)),
-          buildFallbackReport(scenario, transcript, review),
+          fallback,
           review
         );
       } catch {
-        return buildFallbackReport(scenario, transcript, review);
+        return fallback;
       }
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      return buildFallbackReport(scenario, transcript, review);
+      return fallback;
     }
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -110,7 +133,13 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
       },
       body: JSON.stringify({
         model: aiConfig.textModel,
-        instructions: buildCoachSystemPrompt(scenario, transcript, review),
+        instructions: buildCoachSystemPrompt(
+          scenario,
+          transcript,
+          review,
+          mode,
+          activeFocus
+        ),
         input: "Analyse et retourne uniquement du JSON strict.",
         max_output_tokens: 1600,
         text: {
@@ -130,11 +159,11 @@ export class OpenAICoachAnalysisEngine implements CoachAnalysisEngine {
     try {
       return normalizeAiReport(
         parseAiJsonObject(data.output_text ?? ""),
-        buildFallbackReport(scenario, transcript, review),
+        fallback,
         review
       );
     } catch {
-      return buildFallbackReport(scenario, transcript, review);
+      return fallback;
     }
   }
 }
@@ -220,6 +249,12 @@ function normalizeAiReport(
             ),
             sellerQuote: stringifyField(
               item.sellerQuote ?? item.seller ?? item.quoteSeller
+            ),
+            wellDone: stringifyField(
+              item.wellDone ?? item.success ?? item.positive
+            ),
+            improvement: stringifyField(
+              item.improvement ?? item.toImprove ?? item.progress
             ),
             issue: stringifyField(item.issue ?? item.problem),
             betterAnswer: stringifyField(item.betterAnswer ?? item.bestAnswer)

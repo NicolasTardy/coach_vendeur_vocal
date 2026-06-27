@@ -29,7 +29,9 @@ export async function POST(_request: Request, { params }: Params) {
   const coach = new OpenAICoachAnalysisEngine();
   const report = await coach.analyze({
     scenario,
-    transcript: session.transcript
+    transcript: session.transcript,
+    mode: session.mode,
+    focusService: session.focusService
   });
 
   session.endedAt = new Date().toISOString();

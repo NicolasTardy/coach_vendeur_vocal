@@ -23,7 +23,8 @@ function serviceFallbackScore(review: DiscoveryReview, service: ServiceKey) {
 export function buildFallbackReport(
   scenario: Scenario,
   transcript: TranscriptTurn[],
-  review: DiscoveryReview = analyzeDiscovery(scenario, transcript)
+  review: DiscoveryReview = analyzeDiscovery(scenario, transcript),
+  focusService?: ServiceKey
 ): FinalReport {
   const sellerTurns = transcript.filter((turn) => turn.speaker === "seller");
   const lastSellerTurn = sellerTurns.at(-1)?.text ?? "Pas encore de reponse vendeur.";
@@ -56,11 +57,13 @@ export function buildFallbackReport(
         "Tu as garde un ton calme et professionnel.",
         "Tu as commence a explorer le besoin avant de pousser une solution."
       ],
-      priorities: [
-        "Reflexe: transformer l'hesitation en critere de choix. Mots a capter: j'hesite, budget, peur de me tromper. Phrase utile: pour choisir entre ces modeles, le plus important c'est le confort, le budget mensuel ou le risque a proteger ?",
-        "Reflexe: ouvrir le budget en mensualites avant de reduire le projet. Mots a capter: cher, ca pique, je compare, on va reflechir. Phrase utile: on peut regarder le prix en mensualites pour voir si le meilleur choix reste confortable.",
-        "Reflexe: proposer la bonne protection au bon risque. Mots a capter: enfant, tache, panne, batterie, dalle, usage quotidien. Phrase utile: justement, ce risque-la se protege avec GLD/Estaly, je vous explique concretement."
-      ],
+      priorities: focusService
+        ? [fallbackPriorityFor(focusService)]
+        : [
+            "Reflexe: transformer l'hesitation en critere de choix. Mots a capter: j'hesite, budget, peur de me tromper. Phrase utile: pour choisir entre ces modeles, le plus important c'est le confort, le budget mensuel ou le risque a proteger ?",
+            fallbackPriorityFor("cpay"),
+            "Reflexe: proposer la bonne protection au bon risque. Mots a capter: enfant, tache, panne, batterie, dalle, usage quotidien. Phrase utile: justement, ce risque-la se protege avec GLD/Estaly, je vous explique concretement."
+          ],
       recommendedExercises: [
         "But: automatiser Cpay. Etapes: annoncer prix, proposer mensualites possibles, demander accord, rappeler facultatif/soumis acceptation. Verification: le client peut refuser sans pression.",
         "But: vendre la bonne protection. Etapes: nommer le risque produit, choisir GLD ou Estaly, donner un exemple, verifier l'interet. Verification: aucun service hors sujet."
@@ -72,6 +75,10 @@ export function buildFallbackReport(
         turnIndex: Math.max(0, transcript.length - 2),
         clientQuote: likelyObjection,
         sellerQuote: lastSellerTurn,
+        wellDone:
+          "Tu es reste dans l'echange et tu as apporte une reponse au client.",
+        improvement:
+          "Appuie-toi davantage sur les mots exacts du client pour faire avancer la decision.",
         issue: "La reponse ne transforme pas assez l'hesitation en information utile.",
         betterAnswer:
           "A capter: le client donne un indice de frein ou de risque. Reponse adaptee: je comprends; pour vous aider a choisir, c'est plutot le budget mensuel, le risque de panne ou le risque d'abimer le produit qui vous fait hesiter ?"
@@ -106,6 +113,16 @@ export function buildFallbackReport(
     ],
     rawText: ""
   };
+}
+
+function fallbackPriorityFor(service: ServiceKey) {
+  if (service === "cpay") {
+    return "Reflexe: ouvrir le budget en mensualites avant de reduire le projet. Mots a capter: cher, budget, je compare. Phrase utile: on peut regarder le prix en mensualites pour voir si le meilleur choix reste confortable.";
+  }
+  if (service === "gld") {
+    return "Reflexe: relier la GLD au risque de panne. Mots a capter: panne, moteur, batterie, mecanisme. Phrase utile: vous m'avez parle de ce risque; je peux vous montrer comment la GLD protege votre budget.";
+  }
+  return "Reflexe: relier Estaly au risque esthetique. Mots a capter: tache, rayure, enfant, usage quotidien. Phrase utile: pour ce risque precis, je peux vous expliquer la protection Estaly.";
 }
 
 // Synthese en 3 temps, deterministe: 1 reussite, l'occasion manquee n1, le

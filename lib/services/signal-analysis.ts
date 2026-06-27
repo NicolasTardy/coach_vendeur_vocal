@@ -63,7 +63,8 @@ function verdictReason(verdict: ServiceOutcome["verdict"], label: string) {
 
 export function analyzeDiscovery(
   scenario: Scenario,
-  transcript: TranscriptTurn[]
+  transcript: TranscriptTurn[],
+  focusService?: ServiceKey
 ): DiscoveryReview {
   const corpus = sellerCorpus(transcript);
 
@@ -73,7 +74,10 @@ export function analyzeDiscovery(
     estaly: SERVICE_KEYWORDS.estaly.test(corpus)
   };
 
-  const signals: SignalOutcome[] = scenario.capturedSignals.map((signal) => {
+  const relevantSignals = focusService
+    ? scenario.capturedSignals.filter((signal) => signal.service === focusService)
+    : scenario.capturedSignals;
+  const signals: SignalOutcome[] = relevantSignals.map((signal) => {
     const exploited =
       signal.service === "choix"
         ? CHOICE_KEYWORDS.test(corpus)
@@ -86,7 +90,10 @@ export function analyzeDiscovery(
     };
   });
 
-  const services: ServiceOutcome[] = scenario.serviceEligibility.map((item) => {
+  const relevantServices = focusService
+    ? scenario.serviceEligibility.filter((item) => item.service === focusService)
+    : scenario.serviceEligibility;
+  const services: ServiceOutcome[] = relevantServices.map((item) => {
     const isProposed = proposed[item.service];
     const verdict: ServiceOutcome["verdict"] = item.eligible
       ? isProposed

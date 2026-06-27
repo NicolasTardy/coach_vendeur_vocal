@@ -167,13 +167,6 @@ export default function ProgressionPage() {
                     {reco.reason}
                   </p>
                   <div className="mt-4 grid grid-cols-1 gap-2">
-                    <Link
-                      href={`/drills?focus=${reco.service}`}
-                      className="flex h-11 items-center justify-center gap-2 rounded-md bg-citron px-4 text-sm font-black text-ink"
-                    >
-                      <Zap size={16} />
-                      Drill cible : {reco.label}
-                    </Link>
                     {reco.scenarioId && (
                       <Link
                         href={`/?scenario=${reco.scenarioId}`}

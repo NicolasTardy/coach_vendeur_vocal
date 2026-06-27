@@ -261,7 +261,11 @@ function ReportDocument({
         createElement(
           View,
           { style: styles.section },
-          createElement(Text, { style: styles.h2 }, "Comment un pro aurait fait"),
+          createElement(
+            Text,
+            { style: styles.h2 },
+            "Voici mes conseils pour aller plus loin"
+          ),
           ...modelDialogue.map((exchange, index) =>
             createElement(
               View,

@@ -585,6 +585,8 @@ export default function Home() {
           <ReportScreen
             report={report}
             reportId={reportId}
+            sessionMode={session.mode}
+            focusService={session.focusService}
             scenario={
               scenarios.find((item) => item.id === session.scenarioId) ??
               selectedScenario
@@ -645,12 +647,6 @@ function AppTopBar({
           className="flex min-h-9 flex-1 items-center justify-center rounded-md border border-black/15 bg-white px-3 text-center text-xs font-black text-ink"
         >
           Progression
-        </Link>
-        <Link
-          href="/drills"
-          className="flex min-h-9 flex-1 items-center justify-center rounded-md border border-black/15 bg-white px-3 text-center text-xs font-black text-ink"
-        >
-          Flash
         </Link>
         <Link
           href="/espace"
@@ -770,22 +766,6 @@ function SetupScreen({
           </p>
         </Link>
       )}
-
-      <Link
-        href="/drills"
-        className="flex items-center justify-between gap-3 rounded-lg border border-forest/25 bg-white p-4"
-      >
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
-            Echauffement flash · 2 min
-          </p>
-          <p className="mt-1 text-sm leading-5 text-black/70">
-            Quel service pour quel signal ? Mots interdits, eligibilite. A faire
-            avant la simulation pour activer les bons reflexes.
-          </p>
-        </div>
-        <ChevronRight className="shrink-0" size={20} />
-      </Link>
 
       <div className="space-y-3">
         {scenarios.map((scenario) => (
@@ -1049,11 +1029,13 @@ function SimulationScreen({
         </div>
 
         <div className="mt-4 rounded-md bg-paper p-3 text-xs font-bold leading-5 text-black/65">
-          {canAnswer
-            ? `Il te reste ${remainingSellerTurns} prise${
+          {!canAnswer
+            ? "Merci pour cette simulation. Tu es alle au bout de l'echange : lance maintenant l'analyse pour voir tes reussites et tes prochains reflexes."
+            : remainingSellerTurns === 1
+              ? "Derniere reponse avant l'analyse. Prends le temps de conclure clairement et de proposer le service attendu."
+              : `Il te reste ${remainingSellerTurns} prise${
                 remainingSellerTurns > 1 ? "s" : ""
-              } de parole pour proposer mensualites, Cpay et protections utiles.`
-            : `Les ${MAX_SELLER_TURNS} prises de parole vendeur sont terminees. Lance l'analyse.`}
+              } de parole pour proposer mensualites, Cpay et protections utiles.`}
         </div>
 
         <div className="mt-5 flex items-center justify-center gap-2 voice-wave">
@@ -1413,7 +1395,7 @@ function DiscoveryReviewCard({
   );
 }
 
-// Modele expert: comment un pro aurait deroule la vente, reflexes rates surlignes.
+// Conseils de progression: deroule possible et reflexes a renforcer.
 function ModelDialogueCard({ exchanges }: { exchanges: ModelExchange[] }) {
   const missedCount = exchanges.filter((item) => item.missed).length;
 
@@ -1421,7 +1403,7 @@ function ModelDialogueCard({ exchanges }: { exchanges: ModelExchange[] }) {
     <div className="rounded-lg border border-black/10 bg-white p-4">
       <div className="flex items-center gap-2">
         <GraduationCap size={18} />
-        <h2 className="text-base font-black">Comment un pro aurait fait</h2>
+        <h2 className="text-base font-black">Voici mes conseils pour aller plus loin</h2>
       </div>
       <p className="mt-1 text-xs leading-4 text-black/55">
         {missedCount > 0
@@ -1492,16 +1474,20 @@ function ReportScreen({
   report,
   reportId,
   scenario,
+  sessionMode,
+  focusService,
   onReplay,
   onNew
 }: {
   report: FinalReport;
   reportId: string | null;
   scenario: Scenario;
+  sessionMode?: SessionMode;
+  focusService?: ServiceKey;
   onReplay: (turnIndex: number) => void;
   onNew: () => void;
 }) {
-  const skills = [
+  const allSkills = [
     ["Decouverte", report.score.decouverte, 15],
     ["Mensualites & Cpay", report.score.financement, 25],
     ["GLD (garantie)", report.score.garantieExtension, 25],
@@ -1509,6 +1495,12 @@ function ReportScreen({
     ["Objections services", report.score.objections, 5],
     ["Closing", report.score.closing, 5]
   ] as const;
+  const focusedSkillIndex =
+    focusService === "cpay" ? 1 : focusService === "gld" ? 2 : 3;
+  const skills =
+    sessionMode === "drill" && focusService
+      ? [allSkills[focusedSkillIndex]]
+      : allSkills;
 
   return (
     <section className="space-y-5 px-4 pb-7 pt-5">
@@ -1575,6 +1567,23 @@ function ReportScreen({
           <p className="mt-1 text-sm font-bold">
             Vous: <q>{moment.sellerQuote}</q>
           </p>
+          <div className="mt-3 rounded-md border border-forest/25 bg-forest/5 p-3">
+            <p className="text-xs font-black uppercase tracking-[0.08em] text-forest">
+              Bien realise
+            </p>
+            <p className="mt-1 text-sm leading-5 text-black/70">
+              {moment.wellDone ||
+                "Tu as repondu au client et maintenu l'echange."}
+            </p>
+          </div>
+          <div className="mt-2 rounded-md border border-tomato/25 bg-tomato/5 p-3">
+            <p className="text-xs font-black uppercase tracking-[0.08em] text-tomato">
+              A ameliorer
+            </p>
+            <p className="mt-1 text-sm leading-5 text-black/70">
+              {moment.improvement || moment.issue}
+            </p>
+          </div>
           <p className="mt-3 text-xs font-black uppercase tracking-[0.08em] text-forest">
             Ce qu&apos;il fallait capter / comment adapter
           </p>
